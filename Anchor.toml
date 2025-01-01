@@ -5,7 +5,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-casino_plinko = "2JU147Qh1s54RJZPFdyZPvhNDJMpUfaHEHE4UPG27M7m"
+casino_plinko = "Fs8cFDXxUKJNGvCTqWaAzAMB5h7Qr8xLMLSnEiiVCDZn"
 
 [registry]
 url = "https://api.apr.dev"
@@ -15,5 +15,4 @@ cluster = "Devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
-initialize_player = "anchor run initialize_player"
+test = "anchor test"

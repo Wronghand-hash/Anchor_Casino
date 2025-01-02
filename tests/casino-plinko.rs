@@ -4,46 +4,125 @@ use solana_sdk::{signature::Keypair, signer::Signer, system_program};
 use std::str::FromStr;
 
 use casino_plinko::ID as PROGRAM_ID; // Replace with your program ID
+use casino_plinko::{PlayerAccount, GameAccount, PlinkoBetError};
 
 #[tokio::test]
-async fn test_initialize_player_account() {
-    println!("Starting test: Initializes player account");
+async fn test_casino_plinko() {
+    // Initialize the test environment
+    let mut program_test = ProgramTest::new(
+        "casino_plinko", // Name of the program
+        PROGRAM_ID,      // Program ID
+        processor!(casino_plinko::entry), // Entry point of the program
+    );
 
-    // Set up the test environment
-    let mut program_test = ProgramTest::new("casino_plinko", "93Jyfo2FRNfA78vCwFSi1389rNeSR777wHUyUHZPEk6Xs", processor!(casino_plinko::entry));
+    // Start the test environment
     let (mut banks_client, payer, recent_blockhash) = program_test.start().await;
 
-    // Generate a player account keypair
-    let player_account = Keypair::new();
-    println!("Generated player account keypair: {}", player_account.pubkey());
+    // Create a player account
+    let player = Keypair::new();
+    let player_pubkey = player.pubkey();
 
-    // Create the instruction to initialize the player account
-    let instruction = casino_plinko::casino_plinko::initialize_player(
-        "93Jyfo2FRNfA78vCwFSi1389rNeSR777wHUyUHZPEk6X",
-        player_account.pubkey(),
-        payer.pubkey(),
-        100,
+    // Initialize the player account
+    let initial_balance = 100;
+    let initialize_ix = casino_plinko::instruction::initialize_player(
+        PROGRAM_ID,
+        player_pubkey,
+        initial_balance,
     );
-
-    // Send the transaction
     let transaction = solana_sdk::transaction::Transaction::new_signed_with_payer(
-        &[instruction],
+        &[initialize_ix],
         Some(&payer.pubkey()),
-        &[&payer, &player_account],
+        &[&payer, &player],
         recent_blockhash,
     );
-
-    println!("Sending initializePlayer transaction...");
     banks_client.process_transaction(transaction).await.unwrap();
-    println!("initializePlayer transaction completed.");
 
-    // Fetch the player account
-    println!("Fetching player account...");
-    let account = banks_client.get_account(player_account.pubkey()).await.unwrap().unwrap();
-    let player_account_data = PlayerAccount::try_from_slice(&account.data).unwrap();
-    println!("Player account fetched. Balance: {}", player_account_data.balance);
+    // Verify the player account was initialized correctly
+    let player_account: PlayerAccount = banks_client
+        .get_account(player_pubkey)
+        .await
+        .unwrap()
+        .unwrap()
+        .data
+        .try_into()
+        .unwrap();
+    assert_eq!(player_account.player, player_pubkey);
+    assert_eq!(player_account.balance, initial_balance);
 
-    // Assert the balance is correct
-    assert_eq!(player_account_data.balance, 100, "Player account balance should be 100");
-    println!("Test passed: Player account initialized successfully.");
+    // Place a bet
+    let bet_amount = 50;
+    let game_account = Keypair::new();
+    let place_bet_ix = casino_plinko::instruction::place_bet(
+        PROGRAM_ID,
+        player_pubkey,
+        game_account.pubkey(),
+        bet_amount,
+    );
+    let transaction = solana_sdk::transaction::Transaction::new_signed_with_payer(
+        &[place_bet_ix],
+        Some(&payer.pubkey()),
+        &[&payer, &player, &game_account],
+        recent_blockhash,
+    );
+    banks_client.process_transaction(transaction).await.unwrap();
+
+    // Verify the bet was placed correctly
+    let player_account: PlayerAccount = banks_client
+        .get_account(player_pubkey)
+        .await
+        .unwrap()
+        .unwrap()
+        .data
+        .try_into()
+        .unwrap();
+    assert_eq!(player_account.balance, initial_balance - bet_amount);
+
+    let game_account_data: GameAccount = banks_client
+        .get_account(game_account.pubkey())
+        .await
+        .unwrap()
+        .unwrap()
+        .data
+        .try_into()
+        .unwrap();
+    assert_eq!(game_account_data.player, player_pubkey);
+    assert_eq!(game_account_data.bet_amount, bet_amount);
+    assert_eq!(game_account_data.result, 0);
+
+    // Determine the result of the game (win)
+    let result = 1;
+    let determine_result_ix = casino_plinko::instruction::determine_result(
+        PROGRAM_ID,
+        player_pubkey,
+        game_account.pubkey(),
+        result,
+    );
+    let transaction = solana_sdk::transaction::Transaction::new_signed_with_payer(
+        &[determine_result_ix],
+        Some(&payer.pubkey()),
+        &[&payer, &player],
+        recent_blockhash,
+    );
+    banks_client.process_transaction(transaction).await.unwrap();
+
+    // Verify the result was determined correctly
+    let player_account: PlayerAccount = banks_client
+        .get_account(player_pubkey)
+        .await
+        .unwrap()
+        .unwrap()
+        .data
+        .try_into()
+        .unwrap();
+    assert_eq!(player_account.balance, initial_balance - bet_amount + (bet_amount * 2));
+
+    let game_account_data: GameAccount = banks_client
+        .get_account(game_account.pubkey())
+        .await
+        .unwrap()
+        .unwrap()
+        .data
+        .try_into()
+        .unwrap();
+    assert_eq!(game_account_data.result, result);
 }

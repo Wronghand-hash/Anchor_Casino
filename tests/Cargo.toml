@@ -5,7 +5,7 @@ edition = "2021"
 
 [lib]
 name = "integration_tests"
-path = "casino-plinko.rs"  # Replace with the name of your test file
+path = "casino-plinko.rs"
 
 [dependencies]
 anchor-lang = "0.30.1"

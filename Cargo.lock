@@ -938,10 +938,6 @@ name = "casino-plinko"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
- "signature 2.3.0-pre.4",
- "solana-program-test",
- "solana-sdk",
- "tokio",
 ]
 
 [[package]]
@@ -1427,7 +1423,7 @@ version = "1.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91cff35c70bba8a626e3185d8cd48cc11b5437e1a5bcd15b9b5fa3c64b6dfee7"
 dependencies = [
- "signature 1.6.4",
+ "signature",
 ]
 
 [[package]]
@@ -3787,12 +3783,6 @@ name = "signature"
 version = "1.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74233d3b3b2f6d4b006dc19dee745e73e2a6bfb6f93607cd3b02bd5b00797d7c"
-
-[[package]]
-name = "signature"
-version = "2.3.0-pre.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "054d71959c7051b9042c26af337f05cc930575ed2604d7d3ced3158383e59734"
 
 [[package]]
 name = "siphasher"

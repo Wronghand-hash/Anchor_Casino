@@ -1,5 +1,14 @@
+[package]
+name = "integration-tests"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "integration_tests"
+path = "casino-plinko.rs"  # Replace with the name of your test file
+
 [dependencies]
 anchor-lang = "0.30.1"
-solana-program-test = "2.1.7"
-solana-sdk = "2.1.7"
-my_program = { path = "../programs/casino-plinko" }
+solana-program-test = "1.17.3"
+solana-sdk = "1.17.3"
+casino-plinko = { path = "../programs/casino-plinko" }

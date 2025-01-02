@@ -1,99 +1,128 @@
 use anchor_lang::prelude::*;
+use solana_program_test::*;
+use solana_sdk::{signature::Keypair, signer::Signer, system_program};
+use std::str::FromStr;
 
-declare_id!("Gk5Layof7VJwN281YnStuWCfVPWsivkJ8DRJp2brprfv");
+use casino_plinko::ID as PROGRAM_ID; // Replace with your program ID
+use casino_plinko::{PlayerAccount, GameAccount, PlinkoBetError};
 
-#[program]
-pub mod casino_plinko {
-    use super::*;
+#[tokio::test]
+async fn test_casino_plinko() {
+    // Initialize the test environment
+    let mut program_test = ProgramTest::new(
+        "casino_plinko", // Name of the program
+        PROGRAM_ID,      // Program ID
+        processor!(casino_plinko::entry), // Entry point of the program
+    );
+
+    // Start the test environment
+    let (mut banks_client, payer, recent_blockhash) = program_test.start().await;
+
+    // Create a player account
+    let player = Keypair::new();
+    let player_pubkey = player.pubkey();
 
     // Initialize the player account
-    pub fn initialize_player(ctx: Context<InitializePlayer>, initial_balance: u64) -> Result<()> {
-        let player_account = &mut ctx.accounts.player_account;
-        player_account.player = *ctx.accounts.player.key;
-        player_account.balance = initial_balance;
-        Ok(())
-    }
+    let initial_balance = 100;
+    let initialize_ix = casino_plinko::instruction::initialize_player(
+        PROGRAM_ID,
+        player_pubkey,
+        initial_balance,
+    );
+    let transaction = solana_sdk::transaction::Transaction::new_signed_with_payer(
+        &[initialize_ix],
+        Some(&payer.pubkey()),
+        &[&payer, &player],
+        recent_blockhash,
+    );
+    banks_client.process_transaction(transaction).await.unwrap();
 
-    // Place bet
-    pub fn place_bet(ctx: Context<PlaceBet>, bet_amount: u64) -> Result<()> {
-        let player_account = &mut ctx.accounts.player_account;
-        require!(player_account.balance >= bet_amount, PlinkoBetError::InsufficientBalance);
+    // Verify the player account was initialized correctly
+    let player_account: PlayerAccount = banks_client
+        .get_account(player_pubkey)
+        .await
+        .unwrap()
+        .unwrap()
+        .data
+        .try_into()
+        .unwrap();
+    assert_eq!(player_account.player, player_pubkey);
+    assert_eq!(player_account.balance, initial_balance);
 
-        player_account.balance -= bet_amount;
+    // Place a bet
+    let bet_amount = 50;
+    let game_account = Keypair::new();
+    let place_bet_ix = casino_plinko::instruction::place_bet(
+        PROGRAM_ID,
+        player_pubkey,
+        game_account.pubkey(),
+        bet_amount,
+    );
+    let transaction = solana_sdk::transaction::Transaction::new_signed_with_payer(
+        &[place_bet_ix],
+        Some(&payer.pubkey()),
+        &[&payer, &player, &game_account],
+        recent_blockhash,
+    );
+    banks_client.process_transaction(transaction).await.unwrap();
 
-        let game_account = &mut ctx.accounts.game_account;
-        game_account.player = *ctx.accounts.player.key;
-        game_account.bet_amount = bet_amount;
-        game_account.result = 0; // Default to lose
+    // Verify the bet was placed correctly
+    let player_account: PlayerAccount = banks_client
+        .get_account(player_pubkey)
+        .await
+        .unwrap()
+        .unwrap()
+        .data
+        .try_into()
+        .unwrap();
+    assert_eq!(player_account.balance, initial_balance - bet_amount);
 
-        Ok(())
-    }
+    let game_account_data: GameAccount = banks_client
+        .get_account(game_account.pubkey())
+        .await
+        .unwrap()
+        .unwrap()
+        .data
+        .try_into()
+        .unwrap();
+    assert_eq!(game_account_data.player, player_pubkey);
+    assert_eq!(game_account_data.bet_amount, bet_amount);
+    assert_eq!(game_account_data.result, 0);
 
-    // Determine the result of the game
-    pub fn determine_result(ctx: Context<DetermineResult>, result: u8) -> Result<()> {
-        let game_account = &mut ctx.accounts.game_account;
-        let player_account = &mut ctx.accounts.player_account;
+    // Determine the result of the game (win)
+    let result = 1;
+    let determine_result_ix = casino_plinko::instruction::determine_result(
+        PROGRAM_ID,
+        player_pubkey,
+        game_account.pubkey(),
+        result,
+    );
+    let transaction = solana_sdk::transaction::Transaction::new_signed_with_payer(
+        &[determine_result_ix],
+        Some(&payer.pubkey()),
+        &[&payer, &player],
+        recent_blockhash,
+    );
+    banks_client.process_transaction(transaction).await.unwrap();
 
-        game_account.result = result;
+    // Verify the result was determined correctly
+    let player_account: PlayerAccount = banks_client
+        .get_account(player_pubkey)
+        .await
+        .unwrap()
+        .unwrap()
+        .data
+        .try_into()
+        .unwrap();
+    assert_eq!(player_account.balance, initial_balance - bet_amount + (bet_amount * 2));
 
-        if result == 1 {
-            player_account.balance += game_account.bet_amount * 2;
-        }
-
-        Ok(())
-    }
-}
-
-// Context for initializing player account
-#[derive(Accounts)]
-pub struct InitializePlayer<'info> {
-    #[account(init, payer = player, space = 8 + 32 + 8)]
-    pub player_account: Account<'info, PlayerAccount>,
-    #[account(mut)]
-    pub player: Signer<'info>,
-    pub system_program: Program<'info, System>,
-}
-
-// Context for placing bet
-#[derive(Accounts)]
-pub struct PlaceBet<'info> {
-    #[account(mut)]
-    pub player_account: Account<'info, PlayerAccount>,
-    #[account(init, payer = player, space = 8 + 32 + 8 + 1)]
-    pub game_account: Account<'info, GameAccount>,
-    #[account(mut)]
-    pub player: Signer<'info>,
-    pub system_program: Program<'info, System>,
-}
-
-// Context for determining the result
-#[derive(Accounts)]
-pub struct DetermineResult<'info> {
-    #[account(mut)]
-    pub game_account: Account<'info, GameAccount>,
-    #[account(mut)]
-    pub player_account: Account<'info, PlayerAccount>,
-    pub player: Signer<'info>,
-}
-
-// Define the PlayerAccount state
-#[account]
-pub struct PlayerAccount {
-    pub player: Pubkey,
-    pub balance: u64,
-}
-
-// Define the GameAccount state
-#[account]
-pub struct GameAccount {
-    pub player: Pubkey,
-    pub bet_amount: u64,
-    pub result: u8, // 0 for lose, 1 for win
-}
-
-// Custom errors
-#[error_code]
-pub enum PlinkoBetError {
-    #[msg("Insufficient balance")]
-    InsufficientBalance,
+    let game_account_data: GameAccount = banks_client
+        .get_account(game_account.pubkey())
+        .await
+        .unwrap()
+        .unwrap()
+        .data
+        .try_into()
+        .unwrap();
+    assert_eq!(game_account_data.result, result);
 }

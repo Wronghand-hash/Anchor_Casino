@@ -12,7 +12,7 @@ async fn test_casino_plinko() {
     let mut program_test = ProgramTest::new(
         "casino_plinko", // Name of the program
         PROGRAM_ID,      // Program ID
-        processor!(casino_plinko::entry), // Entry point of the program
+        processor!(casino_plinko::processor::Processor::process_instruction), // Use the processor's entry point
     );
 
     // Start the test environment

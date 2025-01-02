@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use std::str::FromStr;
 
 declare_id!("9MaNo9kwFnDX3fqKitUWKWLQF8iN53zm9YgUT3Fkk6Aj");
 

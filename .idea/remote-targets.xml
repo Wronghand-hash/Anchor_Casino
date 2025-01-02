@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="RemoteTargetsManager">
+    <targets>
+      <target name="WSL - Ubuntu" type="wsl" uuid="4efa6e17-0c63-4f65-ba3c-abfaeb44c5b0">
+        <config>
+          <option name="distributionMsId" value="Ubuntu" />
+          <option name="projectRootOnTarget" value="{exitCode=0, timeout=false, cancelled=false, stdout=/tmp/tmp.XoKlJTPFkx&#10;, stderr=}/casino-plinko" />
+        </config>
+        <ContributedStateBase type="RsLanguageRuntime">
+          <config>
+            <option name="cargoPath" value="/home/greez/.cargo/bin/cargo" />
+            <option name="cargoVersion" value="1.83.0 (5ffbef321 2024-10-29)" />
+            <option name="rustcPath" value="/home/greez/.cargo/bin/rustc" />
+            <option name="rustcVersion" value="1.83.0 (90b35a623 2024-11-26)" />
+          </config>
+        </ContributedStateBase>
+      </target>
+    </targets>
+  </component>
+</project>

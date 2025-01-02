@@ -15,4 +15,4 @@ cluster = "Devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "anchor test"
+test-rust = "cargo test-bpf --manifest-path programs/casino_plinko/Cargo.toml"

@@ -8,6 +8,7 @@ describe('casino_plinko', () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
+  // Load the program
   const program = anchor.workspace.CasinoPlinko as Program<CasinoPlinko>;
 
   it('Initializes player account and places a bet', async () => {

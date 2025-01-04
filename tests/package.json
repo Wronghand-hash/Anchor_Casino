@@ -4,10 +4,10 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "test": "anchor test"
+    "test": "ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
   },
   "dependencies": {
-    "@project-serum/anchor": "^0.26.0",
+    "@project-serum/anchor": "^0.28.0",
     "@types/chai": "^4.3.0",
     "@types/mocha": "^9.0.0",
     "chai": "^4.3.4",

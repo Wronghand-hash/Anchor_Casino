@@ -2,12 +2,24 @@ import * as anchor from '@project-serum/anchor';
 import { Program } from '@project-serum/anchor';
 import { CasinoPlinko } from '../target/types/casino_plinko';
 import { expect } from 'chai';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Load the Solana wallet keypair
+const walletPath = path.join(process.env.HOME, '.config', 'solana', 'id.json');
+const walletKeypair = anchor.web3.Keypair.fromSecretKey(
+  new Uint8Array(JSON.parse(fs.readFileSync(walletPath, 'utf-8')))
+);
+
+// Set the provider URL for Devnet
+const provider = new anchor.AnchorProvider(
+  new anchor.web3.Connection("https://api.devnet.solana.com"),
+  new anchor.Wallet(walletKeypair),
+  {}
+);
+anchor.setProvider(provider);
 
 describe('casino_plinko', () => {
-  // Configure the client to use the local cluster.
-  const provider = anchor.AnchorProvider.env();
-  anchor.setProvider(provider);
-
   // Load the program
   const program = anchor.workspace.CasinoPlinko as Program<CasinoPlinko>;
 

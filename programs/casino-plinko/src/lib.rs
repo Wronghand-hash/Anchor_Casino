@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("9MaNo9kwFnDX3fqKitUWKWLQF8iN53zm9YgUT3Fkk6Aj");
+declare_id!("EMcgr5FXAog478oEKWHe4fumH9ynxHhWhGFUxCiPtDsd");
 
 #[program]
 pub mod casino_plinko {

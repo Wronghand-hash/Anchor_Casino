@@ -5,7 +5,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-casino_plinko = "9MaNo9kwFnDX3fqKitUWKWLQF8iN53zm9YgUT3Fkk6Aj"
+casino_plinko = "EMcgr5FXAog478oEKWHe4fumH9ynxHhWhGFUxCiPtDsd"
 
 [registry]
 url = "https://api.apr.dev"
@@ -15,4 +15,4 @@ cluster = "Devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test-rust = "cargo test-bpf --manifest-path programs/casino_plinko/Cargo.toml"
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

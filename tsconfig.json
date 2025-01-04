@@ -1,10 +1,17 @@
 {
   "compilerOptions": {
-    "types": ["mocha", "chai"],
-    "typeRoots": ["./node_modules/@types"],
-    "lib": ["es2015"],
-    "module": "commonjs",
-    "target": "es6",
-    "esModuleInterop": true
-  }
+    "target": "es6", // Target ES6 for modern JavaScript features
+    "module": "commonjs", // Use CommonJS modules (required for Node.js)
+    "lib": ["es2015", "dom"], // Include ES2015 and DOM libraries
+    "strict": true, // Enable all strict type-checking options
+    "esModuleInterop": true, // Enable ES module interop
+    "skipLibCheck": true, // Skip type-checking of declaration files
+    "forceConsistentCasingInFileNames": true, // Ensure consistent file naming
+    "outDir": "./dist", // Output directory for compiled files
+    "rootDir": ".", // Root directory for source files
+    "moduleResolution": "node", // Use Node.js module resolution
+    "types": ["mocha", "chai"] // Include types for Mocha and Chai
+  },
+  "include": ["**/*.ts"], // Include all TypeScript files
+  "exclude": ["node_modules"] // Exclude the node_modules directory
 }

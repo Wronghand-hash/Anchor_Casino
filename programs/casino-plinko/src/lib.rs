@@ -47,7 +47,7 @@ pub mod casino_plinko {
 // Context for initializing the player account
 #[derive(Accounts)]
 pub struct InitializePlayer<'info> {
-    #[account(init, payer = player, space = 8 + 32 + 8)]
+    #[account(init, payer = player, space = 8 + 32 + 8)] // 8 (discriminator) + 32 (player) + 8 (balance)
     pub player_account: Account<'info, PlayerAccount>,
     #[account(mut)]
     pub player: Signer<'info>,
@@ -59,7 +59,7 @@ pub struct InitializePlayer<'info> {
 pub struct PlaceBet<'info> {
     #[account(mut)]
     pub player_account: Account<'info, PlayerAccount>,
-    #[account(init, payer = player, space = 8 + 32 + 8 + 1)]
+    #[account(init, payer = player, space = 8 + 32 + 8 + 1)] // 8 (discriminator) + 32 (player) + 8 (bet_amount) + 1 (result)
     pub game_account: Account<'info, GameAccount>,
     #[account(mut)]
     pub player: Signer<'info>,
@@ -79,16 +79,16 @@ pub struct DetermineResult<'info> {
 // Define the PlayerAccount state
 #[account]
 pub struct PlayerAccount {
-    pub player: Pubkey,
-    pub balance: u64,
+    pub player: Pubkey, // 32 bytes
+    pub balance: u64,   // 8 bytes
 }
 
 // Define the GameAccount state
 #[account]
 pub struct GameAccount {
-    pub player: Pubkey,
-    pub bet_amount: u64,
-    pub result: u8, // 0 for lose, 1 for win
+    pub player: Pubkey, // 32 bytes
+    pub bet_amount: u64, // 8 bytes
+    pub result: u8,     // 1 byte
 }
 
 // Custom errors

@@ -5,13 +5,13 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-casino_plinko = "7CNPz8SgNAp2GhyJvnmBs2qGwzeJ8NBQDnfDbT7juR9p"
+casino_plinko = "Byn4gnsR2JgmeyrSXYg4e4iCms2ou56pMV35bEhSWFZk"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
+cluster = "Devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

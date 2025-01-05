@@ -1,38 +1,24 @@
 import * as anchor from '@project-serum/anchor';
-import { Program, Idl } from '@project-serum/anchor';
+import { Program, BN } from '@project-serum/anchor';
 import { CasinoPlinko } from '../target/types/casino_plinko';
 import { expect } from 'chai';
-import * as path from 'path';
-import * as fs from 'fs';
-
-// Load the Solana wallet keypair
-const walletPath = path.join(process.env.HOME || require('os').homedir(), '.config', 'solana', 'id.json');
-const walletKeypair = anchor.web3.Keypair.fromSecretKey(
-  new Uint8Array(JSON.parse(fs.readFileSync(walletPath, 'utf-8')))
-);
-
-// Set the provider URL for Devnet
-const provider = new anchor.AnchorProvider(
-  new anchor.web3.Connection("https://api.devnet.solana.com"),
-  new anchor.Wallet(walletKeypair),
-  {}
-);
-anchor.setProvider(provider);
-
-// Load the IDL and program ID
-const idl = JSON.parse(fs.readFileSync('./target/idl/casino_plinko.json', 'utf-8'));
-const programId = new anchor.web3.PublicKey("7CNPz8SgNAp2GhyJvnmBs2qGwzeJ8NBQDnfDbT7juR9p");
-
-// Create the program instance
-const program = new Program<CasinoPlinko>(idl, programId, provider);
 
 describe('casino_plinko', () => {
-  it('Initializes player account and places a bet', async () => {
-    // Generate a new keypair for the player account
-    const playerAccount = anchor.web3.Keypair.generate();
+  // Configure the client to use the local cluster.
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
 
-    // Initialize player account
-    await program.methods.initializePlayer(new anchor.BN(100))
+  const program = anchor.workspace.casino_plinko as Program<CasinoPlinko>;
+
+  let playerAccount: anchor.web3.Keypair;
+  let gameAccount: anchor.web3.Keypair;
+  const initialBalance = new BN(1000); // Use BN for u64 values
+  const betAmount = new BN(100); // Use BN for u64 values
+
+  it('Initializes the player account', async () => {
+    playerAccount = anchor.web3.Keypair.generate();
+
+    await program.methods.initializePlayer(initialBalance)
       .accounts({
         playerAccount: playerAccount.publicKey,
         player: provider.wallet.publicKey,
@@ -41,13 +27,15 @@ describe('casino_plinko', () => {
       .signers([playerAccount])
       .rpc();
 
-    // Fetch the initialized account
-    let account = await program.account.playerAccount.fetch(playerAccount.publicKey);
-    expect(account.balance.toString()).to.equal('100');
+    const account = await program.account.playerAccount.fetch(playerAccount.publicKey);
+    expect(account.player.toString()).to.equal(provider.wallet.publicKey.toString());
+    expect(account.balance.eq(initialBalance)).to.be.true; // Use .eq for BN comparison
+  });
 
-    // Place a bet
-    const gameAccount = anchor.web3.Keypair.generate();
-    await program.methods.placeBet(new anchor.BN(50))
+  it('Places a bet', async () => {
+    gameAccount = anchor.web3.Keypair.generate();
+
+    await program.methods.placeBet(betAmount)
       .accounts({
         playerAccount: playerAccount.publicKey,
         gameAccount: gameAccount.publicKey,
@@ -57,13 +45,19 @@ describe('casino_plinko', () => {
       .signers([gameAccount])
       .rpc();
 
-    // Fetch the game account
-    let game = await program.account.gameAccount.fetch(gameAccount.publicKey);
-    expect(game.betAmount.toString()).to.equal('50');
-    expect(game.result).to.equal(0);
+    const player = await program.account.playerAccount.fetch(playerAccount.publicKey);
+    const game = await program.account.gameAccount.fetch(gameAccount.publicKey);
 
-    // Determine the result
-    await program.methods.determineResult(1)
+    expect(player.balance.eq(initialBalance.sub(betAmount))).to.be.true; // Use .sub for BN subtraction
+    expect(game.player.toString()).to.equal(provider.wallet.publicKey.toString());
+    expect(game.betAmount.eq(betAmount)).to.be.true;
+    expect(game.result).to.equal(0); // Default to lose
+  });
+
+  it('Determines the result of the game (win)', async () => {
+    const result = 1; // Win
+
+    await program.methods.determineResult(result)
       .accounts({
         gameAccount: gameAccount.publicKey,
         playerAccount: playerAccount.publicKey,
@@ -71,8 +65,28 @@ describe('casino_plinko', () => {
       })
       .rpc();
 
-    // Fetch the updated player account
-    account = await program.account.playerAccount.fetch(playerAccount.publicKey);
-    expect(account.balance.toString()).to.equal('150');
+    const player = await program.account.playerAccount.fetch(playerAccount.publicKey);
+    const game = await program.account.gameAccount.fetch(gameAccount.publicKey);
+
+    expect(game.result).to.equal(result);
+    expect(player.balance.eq(initialBalance.sub(betAmount).add(betAmount.muln(2)))).to.be.true; // Use BN arithmetic
+  });
+
+  it('Determines the result of the game (lose)', async () => {
+    const result = 0; // Lose
+
+    await program.methods.determineResult(result)
+      .accounts({
+        gameAccount: gameAccount.publicKey,
+        playerAccount: playerAccount.publicKey,
+        player: provider.wallet.publicKey,
+      })
+      .rpc();
+
+    const player = await program.account.playerAccount.fetch(playerAccount.publicKey);
+    const game = await program.account.gameAccount.fetch(gameAccount.publicKey);
+
+    expect(game.result).to.equal(result);
+    expect(player.balance.eq(initialBalance.sub(betAmount))).to.be.true; // Balance remains the same
   });
 });

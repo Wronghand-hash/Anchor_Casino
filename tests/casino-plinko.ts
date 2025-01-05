@@ -21,7 +21,7 @@ anchor.setProvider(provider);
 
 describe('casino_plinko', () => {
   // Load the program
-  const program = anchor.workspace.CasinoPlinko as Program<CasinoPlinko & Idl>;
+  const program = anchor.workspace.casino_plinko as Program<CasinoPlinko & Idl>;
 
   it('Initializes player account and places a bet', async () => {
     // Generate a new keypair for the player account

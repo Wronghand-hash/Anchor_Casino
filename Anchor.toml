@@ -11,7 +11,7 @@ casino_plinko = "7CNPz8SgNAp2GhyJvnmBs2qGwzeJ8NBQDnfDbT7juR9p"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Devnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

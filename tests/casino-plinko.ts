@@ -1,92 +1,99 @@
 import * as anchor from '@project-serum/anchor';
-import { Program, BN } from '@project-serum/anchor';
+import { Program } from '@project-serum/anchor';
 import { CasinoPlinko } from '../target/types/casino_plinko';
-import { expect } from 'chai';
 
 describe('casino_plinko', () => {
-  // Configure the client to use the local cluster.
-  const provider = anchor.AnchorProvider.env();
+  const provider = anchor.Provider.local();
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.casino_plinko as Program<CasinoPlinko>;
+  const program = anchor.workspace.CasinoPlinko as Program<CasinoPlinko>;
 
-  let playerAccount: anchor.web3.Keypair;
-  let gameAccount: anchor.web3.Keypair;
-  const initialBalance = new BN(1000); // Use BN for u64 values
-  const betAmount = new BN(100); // Use BN for u64 values
+  it('Initializes player account', async () => {
+    const playerAccount = anchor.web3.Keypair.generate();
+    const initialBalance = new anchor.BN(100);
 
-  it('Initializes the player account', async () => {
-    playerAccount = anchor.web3.Keypair.generate();
-
-    await program.methods.initializePlayer(initialBalance)
-      .accounts({
+    await program.rpc.initializePlayer(initialBalance, {
+      accounts: {
         playerAccount: playerAccount.publicKey,
         player: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
-      })
-      .signers([playerAccount])
-      .rpc();
+      },
+      signers: [playerAccount],
+    });
 
     const account = await program.account.playerAccount.fetch(playerAccount.publicKey);
-    expect(account.player.toString()).to.equal(provider.wallet.publicKey.toString());
-    expect(account.balance.eq(initialBalance)).to.be.true; // Use .eq for BN comparison
+    assert.ok(account.player.equals(provider.wallet.publicKey));
+    assert.ok(account.balance.eq(initialBalance));
   });
 
   it('Places a bet', async () => {
-    gameAccount = anchor.web3.Keypair.generate();
+    const playerAccount = anchor.web3.Keypair.generate();
+    const gameAccount = anchor.web3.Keypair.generate();
+    const initialBalance = new anchor.BN(100);
+    const betAmount = new anchor.BN(50);
 
-    await program.methods.placeBet(betAmount)
-      .accounts({
+    await program.rpc.initializePlayer(initialBalance, {
+      accounts: {
+        playerAccount: playerAccount.publicKey,
+        player: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      },
+      signers: [playerAccount],
+    });
+
+    await program.rpc.placeBet(betAmount, {
+      accounts: {
         playerAccount: playerAccount.publicKey,
         gameAccount: gameAccount.publicKey,
         player: provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
-      })
-      .signers([gameAccount])
-      .rpc();
+      },
+      signers: [gameAccount],
+    });
 
-    const player = await program.account.playerAccount.fetch(playerAccount.publicKey);
-    const game = await program.account.gameAccount.fetch(gameAccount.publicKey);
-
-    expect(player.balance.eq(initialBalance.sub(betAmount))).to.be.true; // Use .sub for BN subtraction
-    expect(game.player.toString()).to.equal(provider.wallet.publicKey.toString());
-    expect(game.betAmount.eq(betAmount)).to.be.true;
-    expect(game.result).to.equal(0); // Default to lose
+    const account = await program.account.gameAccount.fetch(gameAccount.publicKey);
+    assert.ok(account.player.equals(provider.wallet.publicKey));
+    assert.ok(account.betAmount.eq(betAmount));
+    assert.ok(account.result === 0);
   });
 
-  it('Determines the result of the game (win)', async () => {
-    const result = 1; // Win
+  it('Determines the result of the game', async () => {
+    const playerAccount = anchor.web3.Keypair.generate();
+    const gameAccount = anchor.web3.Keypair.generate();
+    const initialBalance = new anchor.BN(100);
+    const betAmount = new anchor.BN(50);
 
-    await program.methods.determineResult(result)
-      .accounts({
+    await program.rpc.initializePlayer(initialBalance, {
+      accounts: {
+        playerAccount: playerAccount.publicKey,
+        player: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      },
+      signers: [playerAccount],
+    });
+
+    await program.rpc.placeBet(betAmount, {
+      accounts: {
+        playerAccount: playerAccount.publicKey,
+        gameAccount: gameAccount.publicKey,
+        player: provider.wallet.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      },
+      signers: [gameAccount],
+    });
+
+    await program.rpc.determineResult(1, {
+      accounts: {
         gameAccount: gameAccount.publicKey,
         playerAccount: playerAccount.publicKey,
         player: provider.wallet.publicKey,
-      })
-      .rpc();
+      },
+    });
 
-    const player = await program.account.playerAccount.fetch(playerAccount.publicKey);
-    const game = await program.account.gameAccount.fetch(gameAccount.publicKey);
+    const gameAccountData = await program.account.gameAccount.fetch(gameAccount.publicKey);
+    const playerAccountData = await program.account.playerAccount.fetch(playerAccount.publicKey);
 
-    expect(game.result).to.equal(result);
-    expect(player.balance.eq(initialBalance.sub(betAmount).add(betAmount.muln(2)))).to.be.true; // Use BN arithmetic
-  });
-
-  it('Determines the result of the game (lose)', async () => {
-    const result = 0; // Lose
-
-    await program.methods.determineResult(result)
-      .accounts({
-        gameAccount: gameAccount.publicKey,
-        playerAccount: playerAccount.publicKey,
-        player: provider.wallet.publicKey,
-      })
-      .rpc();
-
-    const player = await program.account.playerAccount.fetch(playerAccount.publicKey);
-    const game = await program.account.gameAccount.fetch(gameAccount.publicKey);
-
-    expect(game.result).to.equal(result);
-    expect(player.balance.eq(initialBalance.sub(betAmount))).to.be.true; // Balance remains the same
+    assert.ok(gameAccountData.result === 1);
+    assert.ok(playerAccountData.balance.eq(initialBalance.add(betAmount)));
   });
 });

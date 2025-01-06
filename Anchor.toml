@@ -11,7 +11,7 @@ url = "https://api.apr.dev"
 cluster = "Devnet"  # Use "localnet" for local testing
 wallet = "~/.config/solana/id.json"
 
-[programs.devnet]  # Use "localnet" for local testing
+[programs.localnet]  # Use "localnet" for local testing
 casino_plinko = "Byn4gnsR2JgmeyrSXYg4e4iCms2ou56pMV35bEhSWFZk"
 
 [scripts]

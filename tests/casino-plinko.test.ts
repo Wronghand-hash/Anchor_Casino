@@ -1,4 +1,4 @@
-import { describe, it } from 'mocha';  // Correct import
+import { describe, it, expect, beforeAll } from 'vitest';  // Vitest imports
 import * as anchor from '@coral-xyz/anchor';
 import { Keypair, PublicKey } from '@solana/web3.js';
 import { BankrunProvider } from 'anchor-bankrun';
@@ -7,15 +7,21 @@ import type { CasinoPlinko } from '../target/types/casino_plinko';
 
 const IDL = require('../target/idl/casino_plinko.json');
 
-describe('Casino Plinko!', async () => {
-    const context = await startAnchor('', [{ name: 'casino_plinko', programId: new PublicKey(IDL.address) }], []);
-    const provider = new BankrunProvider(context);
-
-    const payer = provider.wallet as anchor.Wallet;
-    const program = new anchor.Program<CasinoPlinko>(IDL, provider);
-
-    const playerAccount = new Keypair();
+describe('Casino Plinko!', () => {
+    let context: any;
+    let provider: BankrunProvider;
+    let payer: anchor.Wallet;
+    let program: anchor.Program<CasinoPlinko>;
+    let playerAccount: Keypair;
     let gameAccount: Keypair;
+
+    beforeAll(async () => {
+        context = await startAnchor('', [{ name: 'casino_plinko', programId: new PublicKey(IDL.address) }], []);
+        provider = new BankrunProvider(context);
+        payer = provider.wallet as anchor.Wallet;
+        program = new anchor.Program<CasinoPlinko>(IDL, provider);
+        playerAccount = new Keypair();
+    });
 
     it('Initialize the player account', async () => {
         const initialBalance = new anchor.BN(1000);

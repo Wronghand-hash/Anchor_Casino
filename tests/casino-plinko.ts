@@ -13,7 +13,7 @@ describe('Casino Plinko!', async () => {
     const provider = new BankrunProvider(context);
 
     const payer = provider.wallet as anchor.Wallet;
-    const program = new anchor.Program<CasinoPlinko>(IDL, PROGRAM_ID, provider);
+    const program = new anchor.Program<CasinoPlinko>(IDL, provider, PROGRAM_ID); // Fixed argument order
 
     // Generate a new keypair for the player account
     const playerAccount = new Keypair();

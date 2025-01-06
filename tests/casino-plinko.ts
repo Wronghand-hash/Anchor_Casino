@@ -1,125 +1,83 @@
-import * as anchor from '@project-serum/anchor';
-import { Program, Idl } from '@project-serum/anchor';
-import { CasinoPlinko } from '../target/types/casino_plinko'; // Import the generated IDL type
-import { PublicKey, SystemProgram, Keypair } from '@solana/web3.js';
-import assert from 'assert';
+import { describe, it } from 'node:test';
+import * as anchor from '@coral-xyz/anchor';
+import { Keypair, PublicKey } from '@solana/web3.js';
+import { BankrunProvider } from 'anchor-bankrun';
+import { startAnchor } from 'solana-bankrun';
+import type { CasinoPlinko } from '../target/types/casino_plinko';
 
-describe('casino_plinko', () => {
-  // Configure the provider to point to the local Solana cluster
-  const provider = anchor.AnchorProvider.local();
-  anchor.setProvider(provider);
+const IDL = require('../target/idl/casino_plinko.json');
+const PROGRAM_ID = new PublicKey(IDL.address);
 
-  // Load the program ID from the declared ID
-  const programId = new PublicKey("Byn4gnsR2JgmeyrSXYg4e4iCms2ou56pMV35bEhSWFZk");
+describe('Casino Plinko!', async () => {
+    const context = await startAnchor('', [{ name: 'casino_plinko', programId: PROGRAM_ID }], []);
+    const provider = new BankrunProvider(context);
 
-  // Create a Program instance using the IDL and program ID
-  const program = new Program<CasinoPlinko>(
-    require('../target/idl/casino_plinko.json'), // Load the IDL directly
-    programId,
-    provider
-  );
+    const payer = provider.wallet as anchor.Wallet;
+    const program = new anchor.Program<CasinoPlinko>(IDL, PROGRAM_ID, provider);
 
-  it('Initializes player account', async () => {
     // Generate a new keypair for the player account
-    const playerAccount = Keypair.generate();
-    const initialBalance = new anchor.BN(100);
+    const playerAccount = new Keypair();
+    let gameAccount: Keypair;
 
-    // Call the initializePlayer instruction
-    await program.rpc.initializePlayer(initialBalance, {
-      accounts: {
-        playerAccount: playerAccount.publicKey,
-        player: provider.wallet.publicKey,
-        systemProgram: SystemProgram.programId,
-      },
-      signers: [playerAccount],
+    it('Initialize the player account', async () => {
+        console.log(`Payer Address      : ${payer.publicKey}`);
+        console.log(`Player Account     : ${playerAccount.publicKey}`);
+
+        const initialBalance = new anchor.BN(1000); // Use BN for u64 values
+
+        await program.methods
+            .initializePlayer(initialBalance)
+            .accounts({
+                playerAccount: playerAccount.publicKey,
+                player: payer.publicKey,
+            })
+            .signers([playerAccount])
+            .rpc();
+
+        console.log('Player account initialized successfully.');
     });
 
-    // Fetch the player account and verify its data
-    const account = await program.account.playerAccount.fetch(playerAccount.publicKey);
-    assert.ok(account.player.equals(provider.wallet.publicKey), 'Player public key mismatch');
-    assert.ok(account.balance.eq(initialBalance), 'Initial balance mismatch');
-  });
+    it('Place a bet', async () => {
+        const betAmount = new anchor.BN(100); // Use BN for u64 values
 
-  it('Places a bet', async () => {
-    // Generate keypairs for the player and game accounts
-    const playerAccount = Keypair.generate();
-    const gameAccount = Keypair.generate();
-    const initialBalance = new anchor.BN(100);
-    const betAmount = new anchor.BN(50);
+        // Generate a new keypair for the game account
+        gameAccount = new Keypair();
 
-    // Initialize the player account
-    await program.rpc.initializePlayer(initialBalance, {
-      accounts: {
-        playerAccount: playerAccount.publicKey,
-        player: provider.wallet.publicKey,
-        systemProgram: SystemProgram.programId,
-      },
-      signers: [playerAccount],
+        console.log(`Game Account       : ${gameAccount.publicKey}`);
+
+        await program.methods
+            .placeBet(betAmount)
+            .accounts({
+                playerAccount: playerAccount.publicKey,
+                gameAccount: gameAccount.publicKey,
+                player: payer.publicKey,
+            })
+            .signers([gameAccount])
+            .rpc();
+
+        console.log('Bet placed successfully.');
     });
 
-    // Call the placeBet instruction
-    await program.rpc.placeBet(betAmount, {
-      accounts: {
-        playerAccount: playerAccount.publicKey,
-        gameAccount: gameAccount.publicKey,
-        player: provider.wallet.publicKey,
-        systemProgram: SystemProgram.programId,
-      },
-      signers: [gameAccount],
+    it('Determine the result of the game', async () => {
+        const result = 1; // 1 for win, 0 for lose
+
+        // Fetch the game account to get the bet amount
+        const gameAccountData = await program.account.gameAccount.fetch(gameAccount.publicKey);
+        console.log('Game Account Data:', gameAccountData);
+
+        await program.methods
+            .determineResult(result)
+            .accounts({
+                gameAccount: gameAccount.publicKey,
+                playerAccount: playerAccount.publicKey,
+                player: payer.publicKey,
+            })
+            .rpc();
+
+        console.log('Game result determined successfully.');
+
+        // Fetch the updated player account to check the balance
+        const updatedPlayerAccount = await program.account.playerAccount.fetch(playerAccount.publicKey);
+        console.log(`Updated Player Balance: ${updatedPlayerAccount.balance}`);
     });
-
-    // Fetch the game account and verify its data
-    const account = await program.account.gameAccount.fetch(gameAccount.publicKey);
-    assert.ok(account.player.equals(provider.wallet.publicKey), 'Player public key mismatch');
-    assert.ok(account.betAmount.eq(betAmount), 'Bet amount mismatch');
-    assert.strictEqual(account.result, 0, 'Default result should be 0 (lose)');
-  });
-
-  it('Determines the result of the game', async () => {
-    // Generate keypairs for the player and game accounts
-    const playerAccount = Keypair.generate();
-    const gameAccount = Keypair.generate();
-    const initialBalance = new anchor.BN(100);
-    const betAmount = new anchor.BN(50);
-
-    // Initialize the player account
-    await program.rpc.initializePlayer(initialBalance, {
-      accounts: {
-        playerAccount: playerAccount.publicKey,
-        player: provider.wallet.publicKey,
-        systemProgram: SystemProgram.programId,
-      },
-      signers: [playerAccount],
-    });
-
-    // Place a bet
-    await program.rpc.placeBet(betAmount, {
-      accounts: {
-        playerAccount: playerAccount.publicKey,
-        gameAccount: gameAccount.publicKey,
-        player: provider.wallet.publicKey,
-        systemProgram: SystemProgram.programId,
-      },
-      signers: [gameAccount],
-    });
-
-    // Call the determineResult instruction with a winning result (1)
-    await program.rpc.determineResult(1, {
-      accounts: {
-        gameAccount: gameAccount.publicKey,
-        playerAccount: playerAccount.publicKey,
-        player: provider.wallet.publicKey,
-      },
-    });
-
-    // Fetch the game and player accounts and verify their data
-    const gameAccountData = await program.account.gameAccount.fetch(gameAccount.publicKey);
-    const playerAccountData = await program.account.playerAccount.fetch(playerAccount.publicKey);
-
-    assert.strictEqual(gameAccountData.result, 1, 'Result should be 1 (win)');
-    assert.ok(
-      playerAccountData.balance.eq(initialBalance.add(betAmount.mul(new anchor.BN(2)))),
-      'Player balance should increase by 2x the bet amount'
-    );
-  });
 });

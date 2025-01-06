@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it } from 'mocha';
 import * as anchor from '@coral-xyz/anchor';
 import { Keypair, PublicKey } from '@solana/web3.js';
 import { BankrunProvider } from 'anchor-bankrun';
@@ -12,17 +12,13 @@ describe('Casino Plinko!', async () => {
     const provider = new BankrunProvider(context);
 
     const payer = provider.wallet as anchor.Wallet;
-    const program = new anchor.Program<CasinoPlinko>(IDL, provider); // Removed PROGRAM_ID argument
+    const program = new anchor.Program<CasinoPlinko>(IDL, provider);
 
-    // Generate a new keypair for the player account
     const playerAccount = new Keypair();
     let gameAccount: Keypair;
 
     it('Initialize the player account', async () => {
-        console.log(`Payer Address      : ${payer.publicKey}`);
-        console.log(`Player Account     : ${playerAccount.publicKey}`);
-
-        const initialBalance = new anchor.BN(1000); // Use BN for u64 values
+        const initialBalance = new anchor.BN(1000);
 
         await program.methods
             .initializePlayer(initialBalance)
@@ -37,12 +33,8 @@ describe('Casino Plinko!', async () => {
     });
 
     it('Place a bet', async () => {
-        const betAmount = new anchor.BN(100); // Use BN for u64 values
-
-        // Generate a new keypair for the game account
+        const betAmount = new anchor.BN(100);
         gameAccount = new Keypair();
-
-        console.log(`Game Account       : ${gameAccount.publicKey}`);
 
         await program.methods
             .placeBet(betAmount)
@@ -58,9 +50,8 @@ describe('Casino Plinko!', async () => {
     });
 
     it('Determine the result of the game', async () => {
-        const result = 1; // 1 for win, 0 for lose
+        const result = 1;
 
-        // Fetch the game account to get the bet amount
         const gameAccountData = await program.account.gameAccount.fetch(gameAccount.publicKey);
         console.log('Game Account Data:', gameAccountData);
 
@@ -75,7 +66,6 @@ describe('Casino Plinko!', async () => {
 
         console.log('Game result determined successfully.');
 
-        // Fetch the updated player account to check the balance
         const updatedPlayerAccount = await program.account.playerAccount.fetch(playerAccount.publicKey);
         console.log(`Updated Player Balance: ${updatedPlayerAccount.balance}`);
     });

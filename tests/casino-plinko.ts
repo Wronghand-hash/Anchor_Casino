@@ -6,14 +6,13 @@ import { startAnchor } from 'solana-bankrun';
 import type { CasinoPlinko } from '../target/types/casino_plinko';
 
 const IDL = require('../target/idl/casino_plinko.json');
-const PROGRAM_ID = new PublicKey(IDL.address);
 
 describe('Casino Plinko!', async () => {
-    const context = await startAnchor('', [{ name: 'casino_plinko', programId: PROGRAM_ID }], []);
+    const context = await startAnchor('', [{ name: 'casino_plinko', programId: new PublicKey(IDL.address) }], []);
     const provider = new BankrunProvider(context);
 
     const payer = provider.wallet as anchor.Wallet;
-    const program = new anchor.Program<CasinoPlinko>(IDL, provider, PROGRAM_ID); // Fixed argument order
+    const program = new anchor.Program<CasinoPlinko>(IDL, provider); // Removed PROGRAM_ID argument
 
     // Generate a new keypair for the player account
     const playerAccount = new Keypair();

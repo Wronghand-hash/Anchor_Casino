@@ -8,9 +8,18 @@ pub mod casino_plinko {
 
     // Initialize the player account
     pub fn initialize_player(ctx: Context<InitializePlayer>, initial_balance: u64) -> Result<()> {
+        // Validate initial balance
+        require!(initial_balance > 0, PlinkoBetError::InvalidInitialBalance);
+    
         let player_account = &mut ctx.accounts.player_account;
         player_account.player = *ctx.accounts.player.key;
         player_account.balance = initial_balance;
+    
+        // Debugging logs
+        msg!("Player account initialized successfully:");
+        msg!("Player: {}", ctx.accounts.player.key());
+        msg!("Initial Balance: {}", initial_balance);
+    
         Ok(())
     }
 
@@ -47,11 +56,17 @@ pub mod casino_plinko {
 // Context for initializing the player account
 #[derive(Accounts)]
 pub struct InitializePlayer<'info> {
-    #[account(init, payer = player, space = 8 + 32 + 8)] // 8 (discriminator) + 32 (player) + 8 (balance)
-    pub player_account: Account<'info, PlayerAccount>,
+    #[account(
+        init, // Initialize the account
+        payer = player, // The payer is the player
+        space = 8 + 32 + 8, // 8 (discriminator) + 32 (player) + 8 (balance)
+        seeds = [b"player_account", player.key().as_ref()], // PDA seeds
+        bump // Automatically find the bump
+    )]
+    pub player_account: Account<'info, PlayerAccount>, // The player account
     #[account(mut)]
-    pub player: Signer<'info>,
-    pub system_program: Program<'info, System>,
+    pub player: Signer<'info>, // The player signing the transaction
+    pub system_program: Program<'info, System>, // The system program
 }
 
 // Context for placing a bet

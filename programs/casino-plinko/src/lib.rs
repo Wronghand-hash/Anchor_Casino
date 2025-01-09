@@ -9,7 +9,7 @@ pub mod casino_plinko {
     // Initialize the player account
     pub fn initialize_player(ctx: Context<InitializePlayer>, initial_balance: u64) -> Result<()> {
         // Validate initial balance
-        require!(initial_balance > 0, PlinkoBetError::InvalidInitialBalance);
+        require!(initial_balance > 0, PlinkoBetError::Insufficient);
     
         let player_account = &mut ctx.accounts.player_account;
         player_account.player = *ctx.accounts.player.key;

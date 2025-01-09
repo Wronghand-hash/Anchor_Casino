@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 
+// Declare the program ID
 declare_id!("Byn4gnsR2JgmeyrSXYg4e4iCms2ou56pMV35bEhSWFZk");
 
 #[program]
@@ -9,7 +10,7 @@ pub mod casino_plinko {
     // Initialize the player account
     pub fn initialize_player(ctx: Context<InitializePlayer>, initial_balance: u64) -> Result<()> {
         // Validate initial balance
-        require!(initial_balance > 0, PlinkoBetError::InvalidInitialBalance); // Updated error variant
+        require!(initial_balance > 0, PlinkoBetError::InvalidInitialBalance);
     
         let player_account = &mut ctx.accounts.player_account;
         player_account.player = *ctx.accounts.player.key;
@@ -22,7 +23,7 @@ pub mod casino_plinko {
     
         Ok(())
     }
-    
+
     // Place a bet
     pub fn place_bet(ctx: Context<PlaceBet>, bet_amount: u64) -> Result<()> {
         let player_account = &mut ctx.accounts.player_account;
@@ -111,8 +112,7 @@ pub struct GameAccount {
 pub enum PlinkoBetError {
     #[msg("Insufficient balance")]
     InsufficientBalance,
-
+    
     #[msg("Invalid initial balance")]
-    InvalidInitialBalance, // New error variant for invalid initial balance
+    InvalidInitialBalance,
 }
-

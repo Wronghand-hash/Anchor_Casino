@@ -11,23 +11,28 @@ pub mod casino_plinko {
     pub fn initialize_player(ctx: Context<InitializePlayer>, initial_balance: u64) -> Result<()> {
         // Validate initial balance
         require!(initial_balance > 0, PlinkoBetError::InvalidInitialBalance);
-    
+
         let player_account = &mut ctx.accounts.player_account;
         player_account.player = *ctx.accounts.player.key;
         player_account.balance = initial_balance;
-    
+
         // Debugging logs
-        msg!("Player account initialized successfully:");
+        msg!("Initializing Player Account");
         msg!("Player: {}", ctx.accounts.player.key());
+        msg!("PDA: {:?}", ctx.accounts.player_account.key());
         msg!("Initial Balance: {}", initial_balance);
-    
+
         Ok(())
     }
 
     // Place a bet
     pub fn place_bet(ctx: Context<PlaceBet>, bet_amount: u64) -> Result<()> {
         let player_account = &mut ctx.accounts.player_account;
-        require!(player_account.balance >= bet_amount, PlinkoBetError::InsufficientBalance);
+
+        require!(
+            player_account.balance >= bet_amount,
+            PlinkoBetError::InsufficientBalance
+        );
 
         player_account.balance -= bet_amount;
 
@@ -35,6 +40,10 @@ pub mod casino_plinko {
         game_account.player = *ctx.accounts.player.key;
         game_account.bet_amount = bet_amount;
         game_account.result = 0; // Default to lose
+
+        // Debugging logs
+        msg!("Player {} placed a bet of {}", ctx.accounts.player.key(), bet_amount);
+        msg!("Updated player balance: {}", player_account.balance);
 
         Ok(())
     }
@@ -49,6 +58,11 @@ pub mod casino_plinko {
         if result == 1 {
             player_account.balance += game_account.bet_amount * 2;
         }
+
+        // Debugging logs
+        msg!("Game result determined for player {}", ctx.accounts.player.key());
+        msg!("Result: {}", result);
+        msg!("Updated player balance: {}", player_account.balance);
 
         Ok(())
     }
@@ -75,7 +89,13 @@ pub struct InitializePlayer<'info> {
 pub struct PlaceBet<'info> {
     #[account(mut)]
     pub player_account: Account<'info, PlayerAccount>,
-    #[account(init, payer = player, space = 8 + 32 + 8 + 1)] // 8 (discriminator) + 32 (player) + 8 (bet_amount) + 1 (result)
+    #[account(
+        init,
+        payer = player,
+        space = 8 + 32 + 8 + 1, // 8 (discriminator) + 32 (player) + 8 (bet_amount) + 1 (result)
+        seeds = [b"game_account", player.key().as_ref()],
+        bump
+    )]
     pub game_account: Account<'info, GameAccount>,
     #[account(mut)]
     pub player: Signer<'info>,
@@ -102,9 +122,9 @@ pub struct PlayerAccount {
 // Define the GameAccount state
 #[account]
 pub struct GameAccount {
-    pub player: Pubkey, // 32 bytes
-    pub bet_amount: u64, // 8 bytes
-    pub result: u8,     // 1 byte
+    pub player: Pubkey,    // 32 bytes
+    pub bet_amount: u64,   // 8 bytes
+    pub result: u8,        // 1 byte
 }
 
 // Custom errors
@@ -112,7 +132,7 @@ pub struct GameAccount {
 pub enum PlinkoBetError {
     #[msg("Insufficient balance")]
     InsufficientBalance,
-    
+
     #[msg("Invalid initial balance")]
     InvalidInitialBalance,
 }

@@ -7,7 +7,6 @@ declare_id!("Byn4gnsR2JgmeyrSXYg4e4iCms2ou56pMV35bEhSWFZk");
 pub mod casino_plinko {
     use super::*;
 
-    /// Initialize the player account
     pub fn initialize_player(ctx: Context<InitializePlayer>, initial_balance: u64) -> Result<()> {
         require!(initial_balance > 0, PlinkoBetError::InvalidInitialBalance);
 
@@ -23,10 +22,8 @@ pub mod casino_plinko {
         Ok(())
     }
 
-    /// Place a bet
     pub fn place_bet(ctx: Context<PlaceBet>, bet_amount: u64) -> Result<()> {
         let player_account = &mut ctx.accounts.player_account;
-
         require!(
             player_account.balance >= bet_amount,
             PlinkoBetError::InsufficientBalance
@@ -45,7 +42,6 @@ pub mod casino_plinko {
         Ok(())
     }
 
-    /// Determine the result of the game
     pub fn determine_result(ctx: Context<DetermineResult>, result: u8) -> Result<()> {
         require!(result <= 1, PlinkoBetError::Unauthorized);
 
@@ -68,7 +64,6 @@ pub mod casino_plinko {
     }
 }
 
-/// Context for initializing the player account
 #[derive(Accounts)]
 pub struct InitializePlayer<'info> {
     #[account(
@@ -84,7 +79,6 @@ pub struct InitializePlayer<'info> {
     pub system_program: Program<'info, System>,
 }
 
-/// Context for placing a bet
 #[derive(Accounts)]
 pub struct PlaceBet<'info> {
     #[account(
@@ -107,7 +101,6 @@ pub struct PlaceBet<'info> {
     pub system_program: Program<'info, System>,
 }
 
-/// Context for determining the result
 #[derive(Accounts)]
 pub struct DetermineResult<'info> {
     #[account(
@@ -127,14 +120,12 @@ pub struct DetermineResult<'info> {
     pub player: Signer<'info>,
 }
 
-/// Define the PlayerAccount state
 #[account]
 pub struct PlayerAccount {
     pub player: Pubkey,
     pub balance: u64,
 }
 
-/// Define the GameAccount state
 #[account]
 pub struct GameAccount {
     pub player: Pubkey,
@@ -142,7 +133,6 @@ pub struct GameAccount {
     pub result: u8,
 }
 
-/// Custom errors
 #[error_code]
 pub enum PlinkoBetError {
     #[msg("Insufficient balance")]

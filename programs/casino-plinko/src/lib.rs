@@ -9,25 +9,16 @@ pub mod casino_plinko {
 
     /// Initialize the player account
     pub fn initialize_player(ctx: Context<InitializePlayer>, initial_balance: u64) -> Result<()> {
-        // Validate initial balance
         require!(initial_balance > 0, PlinkoBetError::InvalidInitialBalance);
 
-        // Check if the player account already exists
-        if ctx.accounts.player_account.to_account_info().data_is_empty() {
-            // Set player account data
-            let player_account = &mut ctx.accounts.player_account;
-            player_account.player = *ctx.accounts.player.key;
-            player_account.balance = initial_balance;
+        let player_account = &mut ctx.accounts.player_account;
+        player_account.player = *ctx.accounts.player.key;
+        player_account.balance = initial_balance;
 
-            // Debugging logs
-            msg!("Initializing Player Account");
-            msg!("Player: {}", ctx.accounts.player.key());
-            msg!("PDA: {:?}", ctx.accounts.player_account.key());
-            msg!("Initial Balance: {}", initial_balance);
-        } else {
-            // If the account already exists, log a message
-            msg!("Player account already exists");
-        }
+        msg!("Initializing Player Account");
+        msg!("Player: {}", ctx.accounts.player.key());
+        msg!("PDA: {:?}", ctx.accounts.player_account.key());
+        msg!("Initial Balance: {}", initial_balance);
 
         Ok(())
     }
@@ -36,22 +27,18 @@ pub mod casino_plinko {
     pub fn place_bet(ctx: Context<PlaceBet>, bet_amount: u64) -> Result<()> {
         let player_account = &mut ctx.accounts.player_account;
 
-        // Ensure the player has sufficient balance
         require!(
             player_account.balance >= bet_amount,
             PlinkoBetError::InsufficientBalance
         );
 
-        // Deduct bet amount from player balance
         player_account.balance -= bet_amount;
 
-        // Set game account data
         let game_account = &mut ctx.accounts.game_account;
         game_account.player = *ctx.accounts.player.key;
         game_account.bet_amount = bet_amount;
-        game_account.result = 0; // Default result
+        game_account.result = 0;
 
-        // Debugging logs
         msg!("Player {} placed a bet of {}", ctx.accounts.player.key(), bet_amount);
         msg!("Updated player balance: {}", player_account.balance);
 
@@ -60,18 +47,19 @@ pub mod casino_plinko {
 
     /// Determine the result of the game
     pub fn determine_result(ctx: Context<DetermineResult>, result: u8) -> Result<()> {
+        require!(result <= 1, PlinkoBetError::Unauthorized);
+
         let game_account = &mut ctx.accounts.game_account;
         let player_account = &mut ctx.accounts.player_account;
 
-        // Update game result
         game_account.result = result;
 
-        // If the player wins, double the bet amount and update balance
         if result == 1 {
-            player_account.balance += game_account.bet_amount * 2;
+            player_account.balance = player_account.balance
+                .checked_add(game_account.bet_amount.checked_mul(2).unwrap())
+                .unwrap();
         }
 
-        // Debugging logs
         msg!("Game result determined for player {}", ctx.accounts.player.key());
         msg!("Result: {}", result);
         msg!("Updated player balance: {}", player_account.balance);
@@ -84,16 +72,16 @@ pub mod casino_plinko {
 #[derive(Accounts)]
 pub struct InitializePlayer<'info> {
     #[account(
-        init_if_needed, // Use `init_if_needed` to avoid errors if the account already exists
+        init_if_needed,
         payer = player,
-        space = 8 + 32 + 8, // 8 (discriminator) + 32 (player) + 8 (balance)
+        space = 8 + 32 + 8,
         seeds = [b"player_account", player.key().as_ref()],
         bump
     )]
-    pub player_account: Account<'info, PlayerAccount>, // Player account
+    pub player_account: Account<'info, PlayerAccount>,
     #[account(mut)]
-    pub player: Signer<'info>, // Player signing the transaction
-    pub system_program: Program<'info, System>, // System program
+    pub player: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 /// Context for placing a bet
@@ -101,22 +89,22 @@ pub struct InitializePlayer<'info> {
 pub struct PlaceBet<'info> {
     #[account(
         mut,
-        has_one = player, // Ensure the player account belongs to the player
+        has_one = player,
         seeds = [b"player_account", player.key().as_ref()],
         bump
     )]
-    pub player_account: Account<'info, PlayerAccount>, // Player account
+    pub player_account: Account<'info, PlayerAccount>,
     #[account(
         init,
         payer = player,
-        space = 8 + 32 + 8 + 1, // 8 (discriminator) + 32 (player) + 8 (bet_amount) + 1 (result)
+        space = 8 + 32 + 8 + 1,
         seeds = [b"game_account", player.key().as_ref()],
         bump
     )]
-    pub game_account: Account<'info, GameAccount>, // Game account
+    pub game_account: Account<'info, GameAccount>,
     #[account(mut)]
-    pub player: Signer<'info>, // Player signing the transaction
-    pub system_program: Program<'info, System>, // System program
+    pub player: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 /// Context for determining the result
@@ -124,34 +112,34 @@ pub struct PlaceBet<'info> {
 pub struct DetermineResult<'info> {
     #[account(
         mut,
-        has_one = player, // Ensure the game account belongs to the player
+        has_one = player,
         seeds = [b"game_account", player.key().as_ref()],
         bump
     )]
-    pub game_account: Account<'info, GameAccount>, // Game account
+    pub game_account: Account<'info, GameAccount>,
     #[account(
         mut,
-        has_one = player, // Ensure the player account belongs to the player
+        has_one = player,
         seeds = [b"player_account", player.key().as_ref()],
         bump
     )]
-    pub player_account: Account<'info, PlayerAccount>, // Player account
-    pub player: Signer<'info>, // Player signing the transaction
+    pub player_account: Account<'info, PlayerAccount>,
+    pub player: Signer<'info>,
 }
 
 /// Define the PlayerAccount state
 #[account]
 pub struct PlayerAccount {
-    pub player: Pubkey, // Player's public key
-    pub balance: u64,   // Player's balance
+    pub player: Pubkey,
+    pub balance: u64,
 }
 
 /// Define the GameAccount state
 #[account]
 pub struct GameAccount {
-    pub player: Pubkey,    // Player's public key
-    pub bet_amount: u64,   // Bet amount
-    pub result: u8,        // Game result
+    pub player: Pubkey,
+    pub bet_amount: u64,
+    pub result: u8,
 }
 
 /// Custom errors

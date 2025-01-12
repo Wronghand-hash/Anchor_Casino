@@ -12,16 +12,22 @@ pub mod casino_plinko {
         // Validate initial balance
         require!(initial_balance > 0, PlinkoBetError::InvalidInitialBalance);
 
-        // Set player account data
-        let player_account = &mut ctx.accounts.player_account;
-        player_account.player = *ctx.accounts.player.key;
-        player_account.balance = initial_balance;
+        // Check if the player account already exists
+        if ctx.accounts.player_account.to_account_info().data_is_empty() {
+            // Set player account data
+            let player_account = &mut ctx.accounts.player_account;
+            player_account.player = *ctx.accounts.player.key;
+            player_account.balance = initial_balance;
 
-        // Debugging logs
-        msg!("Initializing Player Account");
-        msg!("Player: {}", ctx.accounts.player.key());
-        msg!("PDA: {:?}", ctx.accounts.player_account.key());
-        msg!("Initial Balance: {}", initial_balance);
+            // Debugging logs
+            msg!("Initializing Player Account");
+            msg!("Player: {}", ctx.accounts.player.key());
+            msg!("PDA: {:?}", ctx.accounts.player_account.key());
+            msg!("Initial Balance: {}", initial_balance);
+        } else {
+            // If the account already exists, log a message
+            msg!("Player account already exists");
+        }
 
         Ok(())
     }
@@ -78,7 +84,7 @@ pub mod casino_plinko {
 #[derive(Accounts)]
 pub struct InitializePlayer<'info> {
     #[account(
-        init,
+        init_if_needed, // Use `init_if_needed` instead of `init` to avoid errors if the account already exists
         payer = player,
         space = 8 + 32 + 8, // 8 (discriminator) + 32 (player) + 8 (balance)
         seeds = [b"player_account", player.key().as_ref()],

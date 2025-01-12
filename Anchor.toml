@@ -4,15 +4,15 @@
 resolution = true
 skip-lint = false
 
+[programs.devnet]
+casino_plinko = "97Hk5Mx8zdRdVAa2JFBrhKKfyCHEgxF34sRgojdNkfJ1"
+
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Devnet"  # Use "localnet" for local testing
+cluster = "Devnet"
 wallet = "~/.config/solana/id.json"
-
-[programs.localnet]  # Use "localnet" for local testing
-casino_plinko = "Byn4gnsR2JgmeyrSXYg4e4iCms2ou56pMV35bEhSWFZk"
 
 [scripts]
 test = "npx ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

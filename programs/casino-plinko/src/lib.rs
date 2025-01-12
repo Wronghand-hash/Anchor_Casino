@@ -84,7 +84,7 @@ pub mod casino_plinko {
 #[derive(Accounts)]
 pub struct InitializePlayer<'info> {
     #[account(
-        init_if_needed, // Use `init_if_needed` instead of `init` to avoid errors if the account already exists
+        init_if_needed, // Use `init_if_needed` to avoid errors if the account already exists
         payer = player,
         space = 8 + 32 + 8, // 8 (discriminator) + 32 (player) + 8 (balance)
         seeds = [b"player_account", player.key().as_ref()],
@@ -99,7 +99,12 @@ pub struct InitializePlayer<'info> {
 /// Context for placing a bet
 #[derive(Accounts)]
 pub struct PlaceBet<'info> {
-    #[account(mut)]
+    #[account(
+        mut,
+        has_one = player, // Ensure the player account belongs to the player
+        seeds = [b"player_account", player.key().as_ref()],
+        bump
+    )]
     pub player_account: Account<'info, PlayerAccount>, // Player account
     #[account(
         init,
@@ -117,9 +122,19 @@ pub struct PlaceBet<'info> {
 /// Context for determining the result
 #[derive(Accounts)]
 pub struct DetermineResult<'info> {
-    #[account(mut)]
+    #[account(
+        mut,
+        has_one = player, // Ensure the game account belongs to the player
+        seeds = [b"game_account", player.key().as_ref()],
+        bump
+    )]
     pub game_account: Account<'info, GameAccount>, // Game account
-    #[account(mut)]
+    #[account(
+        mut,
+        has_one = player, // Ensure the player account belongs to the player
+        seeds = [b"player_account", player.key().as_ref()],
+        bump
+    )]
     pub player_account: Account<'info, PlayerAccount>, // Player account
     pub player: Signer<'info>, // Player signing the transaction
 }
@@ -146,4 +161,6 @@ pub enum PlinkoBetError {
     InsufficientBalance,
     #[msg("Invalid initial balance")]
     InvalidInitialBalance,
+    #[msg("Unauthorized access")]
+    Unauthorized,
 }

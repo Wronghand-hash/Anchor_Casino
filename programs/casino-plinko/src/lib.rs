@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 // Declare the program ID
-declare_id!("BEYxYPc7FMYqTVVS3129Fe8jv9NbEoekPx7qn1R1b7UF");
+declare_id!("GLQ7L37VY5nq7Po39KxLxJYd63VNMCQU4rWuddNWM15z");
 
 // Constants
 const MAX_INITIAL_BALANCE: u64 = 1_000_000; // Example max initial balance
@@ -128,6 +128,31 @@ pub mod casino_plinko {
         Ok(())
     }
 
+    /// Deposit funds into the player's account
+    pub fn deposit_funds(ctx: Context<DepositFunds>, amount: u64) -> Result<()> {
+        require!(amount > 0, PlinkoBetError::InvalidDepositAmount);
+
+        let player_account = &mut ctx.accounts.player_account;
+
+        // Add the deposited amount to the player's balance
+        player_account.balance = player_account
+            .balance
+            .checked_add(amount)
+            .ok_or(PlinkoBetError::Overflow)?;
+
+        emit!(FundsDeposited {
+            player: ctx.accounts.player.key(),
+            amount,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
+
+        msg!("Deposit successful for {}", ctx.accounts.player.key());
+        msg!("Deposit Amount: {}", amount);
+        msg!("Updated Player Balance: {}", player_account.balance);
+
+        Ok(())
+    }
+
     /// Close the player account and reclaim rent-exempt SOL
     pub fn close_player_account(ctx: Context<ClosePlayerAccount>) -> Result<()> {
         let player_account = &mut ctx.accounts.player_account;
@@ -215,6 +240,15 @@ pub struct DetermineResult<'info> {
 }
 
 #[derive(Accounts)]
+pub struct DepositFunds<'info> {
+    #[account(mut)]
+    pub player_account: Account<'info, PlayerAccount>,
+    #[account(mut)]
+    pub player: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
 pub struct ClosePlayerAccount<'info> {
     #[account(
         mut,
@@ -276,6 +310,13 @@ pub struct ResultDetermined {
 }
 
 #[event]
+pub struct FundsDeposited {
+    pub player: Pubkey,
+    pub amount: u64,
+    pub timestamp: i64,
+}
+
+#[event]
 pub struct PlayerAccountClosed {
     pub player: Pubkey,
     pub timestamp: i64,
@@ -297,4 +338,6 @@ pub enum PlinkoBetError {
     Underflow,
     #[msg("Account already initialized")]
     AlreadyInitialized,
+    #[msg("Invalid deposit amount")]
+    InvalidDepositAmount,
 }

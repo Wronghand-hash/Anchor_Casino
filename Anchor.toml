@@ -5,7 +5,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-casino_plinko = "BEYxYPc7FMYqTVVS3129Fe8jv9NbEoekPx7qn1R1b7UF"
+casino_plinko = "GLQ7L37VY5nq7Po39KxLxJYd63VNMCQU4rWuddNWM15z"
 
 [registry]
 url = "https://api.apr.dev"

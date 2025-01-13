@@ -27,6 +27,7 @@ pub mod casino_plinko {
         emit!(PlayerInitialized {
             player: ctx.accounts.player.key(),
             initial_balance,
+            timestamp: Clock::get()?.unix_timestamp, // Add timestamp
         });
 
         msg!("Player Account Initialized");
@@ -47,6 +48,7 @@ pub mod casino_plinko {
         emit!(GameInitialized {
             game: ctx.accounts.game_account.key(),
             initial_balance,
+            timestamp: Clock::get()?.unix_timestamp, // Add timestamp
         });
 
         msg!("Game Account Initialized");

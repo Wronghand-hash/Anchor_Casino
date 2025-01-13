@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 
+// Declare the program ID
 declare_id!("BEYxYPc7FMYqTVVS3129Fe8jv9NbEoekPx7qn1R1b7UF");
 
 // Constants
@@ -56,6 +57,8 @@ pub mod casino_plinko {
 
     /// Place a bet
     pub fn place_bet(ctx: Context<PlaceBet>, bet_amount: u64) -> Result<()> {
+        require!(bet_amount > 0, PlinkoBetError::InvalidBetAmount);
+
         let player_account = &mut ctx.accounts.player_account;
 
         require!(
@@ -74,6 +77,7 @@ pub mod casino_plinko {
         emit!(BetPlaced {
             player: ctx.accounts.player.key(),
             bet_amount,
+            timestamp: Clock::get()?.unix_timestamp,
         });
 
         msg!("Bet placed successfully by {}", ctx.accounts.player.key());
@@ -113,6 +117,8 @@ pub mod casino_plinko {
         emit!(ResultDetermined {
             player: ctx.accounts.player.key(),
             result: game_account.result,
+            winnings: if result { game_account.bet_amount * 2 } else { 0 },
+            timestamp: Clock::get()?.unix_timestamp,
         });
 
         msg!("Game result determined for player {}", ctx.accounts.player.key());
@@ -133,6 +139,7 @@ pub mod casino_plinko {
 
         emit!(PlayerAccountClosed {
             player: ctx.accounts.player.key(),
+            timestamp: Clock::get()?.unix_timestamp,
         });
 
         msg!("Player account closed for {}", ctx.accounts.player.key());
@@ -243,29 +250,35 @@ pub enum GameResult {
 pub struct PlayerInitialized {
     pub player: Pubkey,
     pub initial_balance: u64,
+    pub timestamp: i64,
 }
 
 #[event]
 pub struct GameInitialized {
     pub game: Pubkey,
     pub initial_balance: u64,
+    pub timestamp: i64,
 }
 
 #[event]
 pub struct BetPlaced {
     pub player: Pubkey,
     pub bet_amount: u64,
+    pub timestamp: i64,
 }
 
 #[event]
 pub struct ResultDetermined {
     pub player: Pubkey,
     pub result: GameResult,
+    pub winnings: u64,
+    pub timestamp: i64,
 }
 
 #[event]
 pub struct PlayerAccountClosed {
     pub player: Pubkey,
+    pub timestamp: i64,
 }
 
 #[error_code]
@@ -274,6 +287,8 @@ pub enum PlinkoBetError {
     InsufficientBalance,
     #[msg("Invalid initial balance")]
     InvalidInitialBalance,
+    #[msg("Invalid bet amount")]
+    InvalidBetAmount,
     #[msg("Unauthorized access")]
     Unauthorized,
     #[msg("Arithmetic overflow")]

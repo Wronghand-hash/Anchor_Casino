@@ -27,7 +27,7 @@ pub mod casino_plinko {
         emit!(PlayerInitialized {
             player: ctx.accounts.player.key(),
             initial_balance,
-            timestamp: Clock::get()?.unix_timestamp, // Add timestamp
+            timestamp: Clock::get()?.unix_timestamp,
         });
 
         msg!("Player Account Initialized");
@@ -48,7 +48,7 @@ pub mod casino_plinko {
         emit!(GameInitialized {
             game: ctx.accounts.game_account.key(),
             initial_balance,
-            timestamp: Clock::get()?.unix_timestamp, // Add timestamp
+            timestamp: Clock::get()?.unix_timestamp,
         });
 
         msg!("Game Account Initialized");
@@ -135,8 +135,13 @@ pub mod casino_plinko {
         require!(amount > 0, PlinkoBetError::InvalidDepositAmount);
 
         let player_account = &mut ctx.accounts.player_account;
+        let player = &mut ctx.accounts.player;
 
-        // Add the deposited amount to the player's balance
+        // Transfer funds from the player's wallet to the player account
+        **player.to_account_info().try_borrow_mut_lamports()? -= amount;
+        **player_account.to_account_info().try_borrow_mut_lamports()? += amount;
+
+        // Update the player account balance
         player_account.balance = player_account
             .balance
             .checked_add(amount)

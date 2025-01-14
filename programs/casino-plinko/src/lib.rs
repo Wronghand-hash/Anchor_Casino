@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 // Declare the program ID
-declare_id!("GLQ7L37VY5nq7Po39KxLxJYd63VNMCQU4rWuddNWM15z");
+declare_id!("4oDnyhUAw9h5JmVHAx5aJ87WP2sumQtzYgL7Lth3KQg2");
 
 // Constants
 const MAX_INITIAL_BALANCE: u64 = 1_000_000; // Example max initial balance

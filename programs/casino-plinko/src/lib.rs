@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 // Declare the program ID
-declare_id!("EKvFWKK7ZksDp7UoKvWpiHxfeXt1cJjxkFvsvCXJP6qg");
+declare_id!("Bfdzd1XoVrsmuj93dBpi6s4AMgJMmKX2fMfYUUKwCr77");
 
 // Constants
 const MAX_INITIAL_BALANCE: u64 = 1_000_000; // Example max initial balance
@@ -90,46 +90,50 @@ pub mod casino_plinko {
     }
 
     /// Determine the result of the game
-    pub fn determine_result(ctx: Context<DetermineResult>, result: bool) -> Result<()> {
-        require!(
-            ctx.accounts.player.key() == GAME_ADMIN,
-            PlinkoBetError::Unauthorized
-        );
+   /// Determine the result of the game with a multiplier
+pub fn determine_result(
+    ctx: Context<DetermineResult>,
+    result: GameResult,
+    multiplier: u64, // New parameter for the multiplier
+) -> Result<()> {
+    require!(
+        ctx.accounts.player.key() == GAME_ADMIN,
+        PlinkoBetError::Unauthorized
+    );
 
-        let game_account = &mut ctx.accounts.game_account;
-        let player_account = &mut ctx.accounts.player_account;
+    let game_account = &mut ctx.accounts.game_account;
+    let player_account = &mut ctx.accounts.player_account;
 
-        game_account.result = if result {
-            GameResult::Win
-        } else {
-            GameResult::Loss
-        };
+    game_account.result = result;
 
-        if result {
-            let winnings = game_account
-                .bet_amount
-                .checked_mul(2)
-                .ok_or(PlinkoBetError::Overflow)?;
-            player_account.balance = player_account
-                .balance
-                .checked_add(winnings)
-                .ok_or(PlinkoBetError::Overflow)?;
-        }
-
-        emit!(ResultDetermined {
-            player: ctx.accounts.player.key(),
-            result: game_account.result,
-            winnings: if result { game_account.bet_amount * 2 } else { 0 },
-            timestamp: Clock::get()?.unix_timestamp,
-        });
-
-        msg!("Game result determined for player {}", ctx.accounts.player.key());
-        msg!("Result: {:?}", game_account.result);
-        msg!("Updated Player Balance: {}", player_account.balance);
-
-        Ok(())
+    if let GameResult::Win = result {
+        let winnings = game_account
+            .bet_amount
+            .checked_mul(multiplier) // Multiply by the provided multiplier
+            .ok_or(PlinkoBetError::Overflow)?;
+        player_account.balance = player_account
+            .balance
+            .checked_add(winnings)
+            .ok_or(PlinkoBetError::Overflow)?;
     }
 
+    emit!(ResultDetermined {
+        player: ctx.accounts.player.key(),
+        result: game_account.result,
+        winnings: if let GameResult::Win = result {
+            game_account.bet_amount * multiplier
+        } else {
+            0
+        },
+        timestamp: Clock::get()?.unix_timestamp,
+    });
+
+    msg!("Game result determined for player {}", ctx.accounts.player.key());
+    msg!("Result: {:?}", game_account.result);
+    msg!("Updated Player Balance: {}", player_account.balance);
+
+    Ok(())
+}
     /// Deposit funds into the player's account
     pub fn deposit_funds(ctx: Context<DepositFunds>, amount: u64) -> Result<()> {
         require!(amount > 0, PlinkoBetError::InvalidDepositAmount);
@@ -312,7 +316,7 @@ pub struct BetPlaced {
 pub struct ResultDetermined {
     pub player: Pubkey,
     pub result: GameResult,
-    pub winnings: u64,
+    pub winnings: u64, // This will now include the multiplier
     pub timestamp: i64,
 }
 

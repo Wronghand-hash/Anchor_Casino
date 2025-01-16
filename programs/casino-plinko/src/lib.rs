@@ -24,6 +24,23 @@ pub mod casino_plinko {
         Ok(())
     }
 
+    /// Initialize the game account
+    pub fn initialize_game(ctx: Context<InitializeGame>) -> Result<()> {
+        let game_account = &mut ctx.accounts.game_account;
+        game_account.bet_amount = 0; // No bet yet
+        game_account.result = GameResult::Pending; // No result yet
+
+        emit!(GameInitialized {
+            game: ctx.accounts.game_account.key(),
+            timestamp: Clock::get()?.unix_timestamp,
+        });
+
+        msg!("Game Account Initialized");
+        msg!("Game: {}", ctx.accounts.game_account.key());
+
+        Ok(())
+    }
+
     /// Place a bet using SOL from the player's wallet
     pub fn place_bet(ctx: Context<PlaceBet>, bet_amount: u64) -> Result<()> {
         require!(bet_amount > 0, PlinkoBetError::InvalidBetAmount);
@@ -111,6 +128,21 @@ pub struct InitializePlayer<'info> {
 }
 
 #[derive(Accounts)]
+pub struct InitializeGame<'info> {
+    #[account(
+        init,
+        payer = player,
+        space = GAME_ACCOUNT_SPACE,
+        seeds = [b"game_account", player.key().as_ref()],
+        bump
+    )]
+    pub game_account: Account<'info, GameAccount>,
+    #[account(mut)]
+    pub player: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
 pub struct PlaceBet<'info> {
     #[account(
         mut,
@@ -156,6 +188,12 @@ pub enum GameResult {
 #[event]
 pub struct PlayerInitialized {
     pub player: Pubkey,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct GameInitialized {
+    pub game: Pubkey,
     pub timestamp: i64,
 }
 

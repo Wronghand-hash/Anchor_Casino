@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_lang::system_program::{Transfer, transfer};
 
 // Declare the program ID
 declare_id!("4RJp8J1uenuegcb5QUZ7DV9QTxZV8kT6qE6ZXK6JdMG8");
@@ -45,12 +46,19 @@ pub mod casino_plinko {
     pub fn place_bet(ctx: Context<PlaceBet>, bet_amount: u64) -> Result<()> {
         require!(bet_amount > 0, PlinkoBetError::InvalidBetAmount);
 
-        let player = &mut ctx.accounts.player;
+        let player = &ctx.accounts.player;
         let game_account = &mut ctx.accounts.game_account;
 
         // Transfer SOL from player's wallet to the game account
-        **player.to_account_info().try_borrow_mut_lamports()? -= bet_amount;
-        **game_account.to_account_info().try_borrow_mut_lamports()? += bet_amount;
+        let transfer_instruction = Transfer {
+            from: player.to_account_info(),
+            to: game_account.to_account_info(),
+        };
+        let cpi_context = CpiContext::new(
+            ctx.accounts.system_program.to_account_info(),
+            transfer_instruction,
+        );
+        transfer(cpi_context, bet_amount)?;
 
         game_account.bet_amount = bet_amount;
         game_account.result = GameResult::Pending;
@@ -150,7 +158,7 @@ pub struct PlaceBet<'info> {
         bump
     )]
     pub game_account: Account<'info, GameAccount>,
-    #[account(mut)]
+    #[account(mut, signer)] // Ensure the player is a signer
     pub player: Signer<'info>,
     pub system_program: Program<'info, System>,
 }

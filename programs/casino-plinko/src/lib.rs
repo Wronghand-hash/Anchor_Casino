@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program::{Transfer, transfer};
 
 // Declare the program ID
-declare_id!("3ZxgMfMN7tCtQRSysEDdC5Zr6xFer6vrsZdreZ5Vwm7P");
+declare_id!("4RJp8J1uenuegcb5QUZ7DV9QTxZV8kT6qE6ZXK6JdMG8");
 
 // Constants
 const GAME_ACCOUNT_SPACE: usize = 8 + 8 + 1 + 8; // 8 (discriminator) + 8 (bet amount) + 1 (result) + 8 (multiplier)
@@ -60,7 +60,6 @@ pub mod casino_plinko {
         );
         transfer(cpi_context, bet_amount)?;
 
-        // Store the bet amount in the game account
         game_account.bet_amount = bet_amount;
         game_account.result = GameResult::Pending;
         game_account.multiplier = 0; // Reset multiplier
@@ -108,25 +107,21 @@ pub mod casino_plinko {
             // Transfer winnings from game account to player's wallet
             **game_account.to_account_info().try_borrow_mut_lamports()? -= winnings;
             **player.to_account_info().try_borrow_mut_lamports()? += winnings;
-
-            emit!(ResultDetermined {
-                player: player.key(),
-                result: game_account.result,
-                winnings,
-                timestamp: Clock::get()?.unix_timestamp,
-            });
-
-            msg!("Player {} won {} SOL!", player.key(), winnings);
-        } else {
-            emit!(ResultDetermined {
-                player: player.key(),
-                result: game_account.result,
-                winnings: 0,
-                timestamp: Clock::get()?.unix_timestamp,
-            });
-
-            msg!("Player {} lost the bet.", player.key());
         }
+
+        emit!(ResultDetermined {
+            player: player.key(),
+            result: game_account.result,
+            winnings: if let GameResult::Win = result {
+                game_account.bet_amount * multiplier
+            } else {
+                0
+            },
+            timestamp: Clock::get()?.unix_timestamp,
+        });
+
+        msg!("Game result determined for player {}", player.key());
+        msg!("Result: {:?}", game_account.result);
 
         Ok(())
     }

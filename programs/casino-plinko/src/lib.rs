@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program::{Transfer, transfer};
 
 // Declare the program ID
-declare_id!("4RJp8J1uenuegcb5QUZ7DV9QTxZV8kT6qE6ZXK6JdMG8");
+declare_id!("9HZPph7Mf2fam6sksxENcg2kFhx2ResWvdKawM2c7j16");
 
 // Constants
 const GAME_ACCOUNT_SPACE: usize = 8 + 8 + 1 + 8; // 8 (discriminator) + 8 (bet amount) + 1 (result) + 8 (multiplier)

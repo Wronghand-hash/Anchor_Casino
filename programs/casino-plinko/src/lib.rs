@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program::{Transfer, transfer};
 
 // Declare the program ID
-declare_id!("9HZPph7Mf2fam6sksxENcg2kFhx2ResWvdKawM2c7j16");
+declare_id!("J8W2WcPuspQjfA9Wg9QZgrxv7CUG8yMXLBZu7gT7tfiQ");
 
 // Constants
 const GAME_ACCOUNT_SPACE: usize = 8 + 8 + 1 + 8; // 8 (discriminator) + 8 (bet amount) + 1 (result) + 8 (multiplier)
@@ -24,12 +24,26 @@ pub mod casino_plinko {
         Ok(())
     }
 
-    /// Initialize the game account
-    pub fn initialize_game(ctx: Context<InitializeGame>) -> Result<()> {
+    /// Initialize the game account and fund it with SOL
+    pub fn initialize_game(ctx: Context<InitializeGame>, initial_funding: u64) -> Result<()> {
         let game_account = &mut ctx.accounts.game_account;
+        let player = &ctx.accounts.player;
+
+        // Initialize game account fields
         game_account.bet_amount = 0; // No bet yet
         game_account.result = GameResult::Pending; // No result yet
         game_account.multiplier = 0; // No multiplier yet
+
+        // Transfer SOL from player's wallet to the game account
+        let transfer_instruction = Transfer {
+            from: player.to_account_info(),
+            to: game_account.to_account_info(),
+        };
+        let cpi_context = CpiContext::new(
+            ctx.accounts.system_program.to_account_info(),
+            transfer_instruction,
+        );
+        transfer(cpi_context, initial_funding)?;
 
         emit!(GameInitialized {
             game: ctx.accounts.game_account.key(),
@@ -38,6 +52,7 @@ pub mod casino_plinko {
 
         msg!("Game Account Initialized");
         msg!("Game: {}", ctx.accounts.game_account.key());
+        msg!("Initial Funding: {} lamports", initial_funding);
 
         Ok(())
     }
@@ -48,7 +63,7 @@ pub mod casino_plinko {
 
         let game_account = &mut ctx.accounts.game_account;
 
-        // Ensure the game account is initialized
+        // Ensure the game account is in the correct state
         require!(
             game_account.bet_amount == 0 && game_account.result == GameResult::Pending,
             PlinkoBetError::InvalidGameState
@@ -79,6 +94,24 @@ pub mod casino_plinko {
 
         msg!("Bet placed successfully by {}", player.key());
         msg!("Bet Amount: {}", bet_amount);
+
+        Ok(())
+    }
+
+    /// Reset the game account to its initial state
+    pub fn reset_game(ctx: Context<ResetGame>) -> Result<()> {
+        let game_account = &mut ctx.accounts.game_account;
+        game_account.bet_amount = 0;
+        game_account.result = GameResult::Pending;
+        game_account.multiplier = 0;
+
+        emit!(GameReset {
+            game: ctx.accounts.game_account.key(),
+            timestamp: Clock::get()?.unix_timestamp,
+        });
+
+        msg!("Game Account Reset");
+        msg!("Game: {}", ctx.accounts.game_account.key());
 
         Ok(())
     }
@@ -186,6 +219,19 @@ pub struct PlaceBet<'info> {
 }
 
 #[derive(Accounts)]
+pub struct ResetGame<'info> {
+    #[account(
+        mut,
+        seeds = [b"game_account", player.key().as_ref()],
+        bump
+    )]
+    pub game_account: Account<'info, GameAccount>,
+    #[account(mut)]
+    pub player: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
 pub struct DetermineResult<'info> {
     #[account(
         mut,
@@ -233,6 +279,12 @@ pub struct GameInitialized {
 pub struct BetPlaced {
     pub player: Pubkey,
     pub bet_amount: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct GameReset {
+    pub game: Pubkey,
     pub timestamp: i64,
 }
 

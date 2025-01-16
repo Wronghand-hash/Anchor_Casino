@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 // Declare the program ID
-declare_id!("Bfdzd1XoVrsmuj93dBpi6s4AMgJMmKX2fMfYUUKwCr77");
+declare_id!("4RJp8J1uenuegcb5QUZ7DV9QTxZV8kT6qE6ZXK6JdMG8");
 
 // Constants
 const MAX_INITIAL_BALANCE: u64 = 1_000_000; // Example max initial balance
@@ -16,33 +16,29 @@ pub mod casino_plinko {
     /// Initialize the player account
     pub fn initialize_player(ctx: Context<InitializePlayer>, initial_balance: u64) -> Result<()> {
         require!(initial_balance > 0, PlinkoBetError::InvalidInitialBalance);
-    
-        // Extract lamports into a local variable before mutably borrowing the account
-        let transfer_amount = **ctx.accounts.player_account.to_account_info().lamports.borrow();
-    
+
         let player_account = &mut ctx.accounts.player_account;
-    
-        // Perform operations with the extracted data
-        player_account.balance = transfer_amount;
-    
+        player_account.balance = initial_balance;
+
         emit!(PlayerInitialized {
             player: ctx.accounts.player.key(),
-            initial_balance: transfer_amount,
+            initial_balance,
             timestamp: Clock::get()?.unix_timestamp,
         });
-    
+
         msg!("Player Account Initialized");
         msg!("Player: {}", ctx.accounts.player.key());
-        msg!("Initial Balance: {}", transfer_amount);
-    
+        msg!("Initial Balance: {}", initial_balance);
+
         Ok(())
     }
-    
 
     /// Initialize the game account
     pub fn initialize_game(ctx: Context<InitializeGame>, initial_balance: u64) -> Result<()> {
-        let game_account = &mut ctx.accounts.game_account;
+        require!(initial_balance > 0, PlinkoBetError::InvalidInitialBalance);
+        require!(initial_balance <= MAX_INITIAL_BALANCE, PlinkoBetError::InvalidInitialBalance);
 
+        let game_account = &mut ctx.accounts.game_account;
         game_account.balance = initial_balance;
         game_account.bet_amount = 0; // No bet yet
         game_account.result = GameResult::Pending; // No result yet
@@ -95,7 +91,7 @@ pub mod casino_plinko {
     pub fn determine_result(
         ctx: Context<DetermineResult>,
         result: GameResult,
-        multiplier: u64, // New parameter for the multiplier
+        multiplier: u64,
     ) -> Result<()> {
         require!(
             ctx.accounts.player.key() == GAME_ADMIN,
@@ -110,7 +106,7 @@ pub mod casino_plinko {
         if let GameResult::Win = result {
             let winnings = game_account
                 .bet_amount
-                .checked_mul(multiplier) // Multiply by the provided multiplier
+                .checked_mul(multiplier)
                 .ok_or(PlinkoBetError::Overflow)?;
             player_account.balance = player_account
                 .balance
@@ -143,11 +139,9 @@ pub mod casino_plinko {
         let player_account = &mut ctx.accounts.player_account;
         let player = &mut ctx.accounts.player;
 
-        // Transfer funds from the player's wallet to the player account
         **player.to_account_info().try_borrow_mut_lamports()? -= amount;
         **player_account.to_account_info().try_borrow_mut_lamports()? += amount;
 
-        // Update the player account balance
         player_account.balance = player_account
             .balance
             .checked_add(amount)
@@ -171,7 +165,6 @@ pub mod casino_plinko {
         let player_account = &mut ctx.accounts.player_account;
         let player = &mut ctx.accounts.player;
 
-        // Transfer remaining balance to the player
         **player.to_account_info().try_borrow_mut_lamports()? += player_account.balance;
         **player_account.to_account_info().try_borrow_mut_lamports()? = 0;
 
@@ -318,7 +311,7 @@ pub struct BetPlaced {
 pub struct ResultDetermined {
     pub player: Pubkey,
     pub result: GameResult,
-    pub winnings: u64, // This will now include the multiplier
+    pub winnings: u64,
     pub timestamp: i64,
 }
 

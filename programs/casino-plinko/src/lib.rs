@@ -16,26 +16,28 @@ pub mod casino_plinko {
     /// Initialize the player account
     pub fn initialize_player(ctx: Context<InitializePlayer>, initial_balance: u64) -> Result<()> {
         require!(initial_balance > 0, PlinkoBetError::InvalidInitialBalance);
-        require!(
-            initial_balance <= MAX_INITIAL_BALANCE,
-            PlinkoBetError::InvalidInitialBalance
-        );
-
+    
+        // Extract lamports into a local variable before mutably borrowing the account
+        let transfer_amount = **ctx.accounts.player_account.to_account_info().lamports.borrow();
+    
         let player_account = &mut ctx.accounts.player_account;
-        player_account.balance = initial_balance;
-
+    
+        // Perform operations with the extracted data
+        player_account.balance = transfer_amount;
+    
         emit!(PlayerInitialized {
             player: ctx.accounts.player.key(),
-            initial_balance,
+            initial_balance: transfer_amount,
             timestamp: Clock::get()?.unix_timestamp,
         });
-
+    
         msg!("Player Account Initialized");
         msg!("Player: {}", ctx.accounts.player.key());
-        msg!("Initial Balance: {}", initial_balance);
-
+        msg!("Initial Balance: {}", transfer_amount);
+    
         Ok(())
     }
+    
 
     /// Initialize the game account
     pub fn initialize_game(ctx: Context<InitializeGame>, initial_balance: u64) -> Result<()> {
@@ -89,51 +91,51 @@ pub mod casino_plinko {
         Ok(())
     }
 
-    /// Determine the result of the game
-   /// Determine the result of the game with a multiplier
-pub fn determine_result(
-    ctx: Context<DetermineResult>,
-    result: GameResult,
-    multiplier: u64, // New parameter for the multiplier
-) -> Result<()> {
-    require!(
-        ctx.accounts.player.key() == GAME_ADMIN,
-        PlinkoBetError::Unauthorized
-    );
+    /// Determine the result of the game with a multiplier
+    pub fn determine_result(
+        ctx: Context<DetermineResult>,
+        result: GameResult,
+        multiplier: u64, // New parameter for the multiplier
+    ) -> Result<()> {
+        require!(
+            ctx.accounts.player.key() == GAME_ADMIN,
+            PlinkoBetError::Unauthorized
+        );
 
-    let game_account = &mut ctx.accounts.game_account;
-    let player_account = &mut ctx.accounts.player_account;
+        let game_account = &mut ctx.accounts.game_account;
+        let player_account = &mut ctx.accounts.player_account;
 
-    game_account.result = result;
+        game_account.result = result;
 
-    if let GameResult::Win = result {
-        let winnings = game_account
-            .bet_amount
-            .checked_mul(multiplier) // Multiply by the provided multiplier
-            .ok_or(PlinkoBetError::Overflow)?;
-        player_account.balance = player_account
-            .balance
-            .checked_add(winnings)
-            .ok_or(PlinkoBetError::Overflow)?;
+        if let GameResult::Win = result {
+            let winnings = game_account
+                .bet_amount
+                .checked_mul(multiplier) // Multiply by the provided multiplier
+                .ok_or(PlinkoBetError::Overflow)?;
+            player_account.balance = player_account
+                .balance
+                .checked_add(winnings)
+                .ok_or(PlinkoBetError::Overflow)?;
+        }
+
+        emit!(ResultDetermined {
+            player: ctx.accounts.player.key(),
+            result: game_account.result,
+            winnings: if let GameResult::Win = result {
+                game_account.bet_amount * multiplier
+            } else {
+                0
+            },
+            timestamp: Clock::get()?.unix_timestamp,
+        });
+
+        msg!("Game result determined for player {}", ctx.accounts.player.key());
+        msg!("Result: {:?}", game_account.result);
+        msg!("Updated Player Balance: {}", player_account.balance);
+
+        Ok(())
     }
 
-    emit!(ResultDetermined {
-        player: ctx.accounts.player.key(),
-        result: game_account.result,
-        winnings: if let GameResult::Win = result {
-            game_account.bet_amount * multiplier
-        } else {
-            0
-        },
-        timestamp: Clock::get()?.unix_timestamp,
-    });
-
-    msg!("Game result determined for player {}", ctx.accounts.player.key());
-    msg!("Result: {:?}", game_account.result);
-    msg!("Updated Player Balance: {}", player_account.balance);
-
-    Ok(())
-}
     /// Deposit funds into the player's account
     pub fn deposit_funds(ctx: Context<DepositFunds>, amount: u64) -> Result<()> {
         require!(amount > 0, PlinkoBetError::InvalidDepositAmount);

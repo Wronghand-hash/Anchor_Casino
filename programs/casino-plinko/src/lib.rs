@@ -2,11 +2,10 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program::{Transfer, transfer};
 
 // Declare the program ID
-declare_id!("4RJp8J1uenuegcb5QUZ7DV9QTxZV8kT6qE6ZXK6JdMG8");
+declare_id!("3ZxgMfMN7tCtQRSysEDdC5Zr6xFer6vrsZdreZ5Vwm7P");
 
 // Constants
-const GAME_ACCOUNT_SPACE: usize = 8 + 8 + 1; // 8 (discriminator) + 8 (bet amount) + 1 (result)
-const GAME_ADMIN: Pubkey = pubkey!("6HYF3mjwcFADoBh55FsTNFSxC4Gos5yU6AsATTQ64oHW"); // Replace with actual admin pubkey
+const GAME_ACCOUNT_SPACE: usize = 8 + 8 + 1 + 8; // 8 (discriminator) + 8 (bet amount) + 1 (result) + 8 (multiplier)
 
 #[program]
 pub mod casino_plinko {
@@ -30,6 +29,7 @@ pub mod casino_plinko {
         let game_account = &mut ctx.accounts.game_account;
         game_account.bet_amount = 0; // No bet yet
         game_account.result = GameResult::Pending; // No result yet
+        game_account.multiplier = 0; // No multiplier yet
 
         emit!(GameInitialized {
             game: ctx.accounts.game_account.key(),
@@ -60,8 +60,10 @@ pub mod casino_plinko {
         );
         transfer(cpi_context, bet_amount)?;
 
+        // Store the bet amount in the game account
         game_account.bet_amount = bet_amount;
         game_account.result = GameResult::Pending;
+        game_account.multiplier = 0; // Reset multiplier
 
         emit!(BetPlaced {
             player: player.key(),
@@ -75,23 +77,29 @@ pub mod casino_plinko {
         Ok(())
     }
 
-    /// Determine the result of the game with a multiplier
-    pub fn determine_result(
-        ctx: Context<DetermineResult>,
-        result: GameResult,
-        multiplier: u64,
-    ) -> Result<()> {
+    /// Determine the result of the game and transfer winnings to the player
+    pub fn determine_result(ctx: Context<DetermineResult>, multiplier: u64) -> Result<()> {
+        let game_account = &mut ctx.accounts.game_account;
+        let player = &ctx.accounts.player;
+
+        // Ensure the game is in a pending state
         require!(
-            ctx.accounts.player.key() == GAME_ADMIN,
-            PlinkoBetError::Unauthorized
+            game_account.result == GameResult::Pending,
+            PlinkoBetError::InvalidGameState
         );
 
-        let game_account = &mut ctx.accounts.game_account;
-        let player = &mut ctx.accounts.player;
+        // Determine the result based on the multiplier
+        let result = if multiplier > 1 {
+            GameResult::Win
+        } else {
+            GameResult::Loss
+        };
 
         game_account.result = result;
+        game_account.multiplier = multiplier;
 
         if let GameResult::Win = result {
+            // Calculate winnings
             let winnings = game_account
                 .bet_amount
                 .checked_mul(multiplier)
@@ -100,21 +108,25 @@ pub mod casino_plinko {
             // Transfer winnings from game account to player's wallet
             **game_account.to_account_info().try_borrow_mut_lamports()? -= winnings;
             **player.to_account_info().try_borrow_mut_lamports()? += winnings;
+
+            emit!(ResultDetermined {
+                player: player.key(),
+                result: game_account.result,
+                winnings,
+                timestamp: Clock::get()?.unix_timestamp,
+            });
+
+            msg!("Player {} won {} SOL!", player.key(), winnings);
+        } else {
+            emit!(ResultDetermined {
+                player: player.key(),
+                result: game_account.result,
+                winnings: 0,
+                timestamp: Clock::get()?.unix_timestamp,
+            });
+
+            msg!("Player {} lost the bet.", player.key());
         }
-
-        emit!(ResultDetermined {
-            player: player.key(),
-            result: game_account.result,
-            winnings: if let GameResult::Win = result {
-                game_account.bet_amount * multiplier
-            } else {
-                0
-            },
-            timestamp: Clock::get()?.unix_timestamp,
-        });
-
-        msg!("Game result determined for player {}", player.key());
-        msg!("Result: {:?}", game_account.result);
 
         Ok(())
     }
@@ -173,6 +185,7 @@ pub struct DetermineResult<'info> {
     pub game_account: Account<'info, GameAccount>,
     #[account(mut)]
     pub player: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 #[account]
@@ -184,9 +197,10 @@ pub struct PlayerAccount {
 pub struct GameAccount {
     pub bet_amount: u64,
     pub result: GameResult,
+    pub multiplier: u64, // Added multiplier field
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq)]
 pub enum GameResult {
     Pending,
     Win,
@@ -228,4 +242,6 @@ pub enum PlinkoBetError {
     Unauthorized,
     #[msg("Arithmetic overflow")]
     Overflow,
+    #[msg("Invalid game state")]
+    InvalidGameState,
 }

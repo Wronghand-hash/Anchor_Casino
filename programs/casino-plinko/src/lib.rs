@@ -46,8 +46,15 @@ pub mod casino_plinko {
     pub fn place_bet(ctx: Context<PlaceBet>, bet_amount: u64) -> Result<()> {
         require!(bet_amount > 0, PlinkoBetError::InvalidBetAmount);
 
-        let player = &ctx.accounts.player;
         let game_account = &mut ctx.accounts.game_account;
+
+        // Ensure the game account is initialized
+        require!(
+            game_account.bet_amount == 0 && game_account.result == GameResult::Pending,
+            PlinkoBetError::InvalidGameState
+        );
+
+        let player = &ctx.accounts.player;
 
         // Transfer SOL from player's wallet to the game account
         let transfer_instruction = Transfer {
@@ -104,9 +111,17 @@ pub mod casino_plinko {
                 .checked_mul(multiplier)
                 .ok_or(PlinkoBetError::Overflow)?;
 
+            // Ensure game account has enough lamports
+            require!(
+                game_account.to_account_info().lamports() >= winnings,
+                PlinkoBetError::InsufficientFunds
+            );
+
             // Transfer winnings from game account to player's wallet
             **game_account.to_account_info().try_borrow_mut_lamports()? -= winnings;
             **player.to_account_info().try_borrow_mut_lamports()? += winnings;
+
+            msg!("Winnings transferred: {} lamports", winnings);
         }
 
         emit!(ResultDetermined {
@@ -239,4 +254,6 @@ pub enum PlinkoBetError {
     Overflow,
     #[msg("Invalid game state")]
     InvalidGameState,
+    #[msg("Insufficient funds in game account")]
+    InsufficientFunds,
 }

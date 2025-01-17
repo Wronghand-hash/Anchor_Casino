@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program::{Transfer, transfer};
 
 // Declare the program ID
-declare_id!("3W3pQ4p4AvhExDFipFEZKrTgwWSo9e1uLYE4vZmyP4ui");
+declare_id!("EHKxr3iUZD6rvMZ2XaBSYxu76VC9FsYSDZzhKCbdU1jh");
 
 // Constants
 const GAME_ACCOUNT_SPACE: usize = 8 + 8 + 1 + 8; // 8 (discriminator) + 8 (bet amount) + 1 (result) + 8 (multiplier)
@@ -214,7 +214,8 @@ pub struct PlaceBet<'info> {
     #[account(
         mut,
         seeds = [b"global_game_account"], // Shared game account
-        bump
+        bump,
+        constraint = game_account.bet_amount == 0 && game_account.result == GameResult::Pending @ PlinkoBetError::InvalidGameState
     )]
     pub game_account: Account<'info, GameAccount>,
     #[account(mut, signer)] // Ensure the player is a signer

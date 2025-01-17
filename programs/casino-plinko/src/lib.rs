@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program::{Transfer, transfer};
 
 // Declare the program ID
-declare_id!("DX93ZJCkAUMs6gDRnHh7ASzeazyQsb5XmNfhSXkPJTiL");
+declare_id!("3W3pQ4p4AvhExDFipFEZKrTgwWSo9e1uLYE4vZmyP4ui");
 
 // Constants
 const GAME_ACCOUNT_SPACE: usize = 8 + 8 + 1 + 8; // 8 (discriminator) + 8 (bet amount) + 1 (result) + 8 (multiplier)
@@ -11,32 +11,19 @@ const GAME_ACCOUNT_SPACE: usize = 8 + 8 + 1 + 8; // 8 (discriminator) + 8 (bet a
 pub mod casino_plinko {
     use super::*;
 
-    /// Initialize the player account
-    pub fn initialize_player(ctx: Context<InitializePlayer>) -> Result<()> {
-        emit!(PlayerInitialized {
-            player: ctx.accounts.player.key(),
-            timestamp: Clock::get()?.unix_timestamp,
-        });
-
-        msg!("Player Account Initialized");
-        msg!("Player: {}", ctx.accounts.player.key());
-
-        Ok(())
-    }
-
     /// Initialize the game account and fund it with SOL
     pub fn initialize_game(ctx: Context<InitializeGame>, initial_funding: u64) -> Result<()> {
         let game_account = &mut ctx.accounts.game_account;
-        let player = &ctx.accounts.player;
+        let payer = &ctx.accounts.payer;
 
         // Initialize game account fields
         game_account.bet_amount = 0; // No bet yet
         game_account.result = GameResult::Pending; // No result yet
         game_account.multiplier = 0; // No multiplier yet
 
-        // Transfer SOL from player's wallet to the game account
+        // Transfer SOL from payer's wallet to the game account
         let transfer_instruction = Transfer {
-            from: player.to_account_info(),
+            from: payer.to_account_info(),
             to: game_account.to_account_info(),
         };
         let cpi_context = CpiContext::new(
@@ -127,6 +114,9 @@ pub mod casino_plinko {
             PlinkoBetError::InvalidGameState
         );
 
+        // Log game account balance before payout
+        msg!("Game account balance before payout: {} lamports", game_account.to_account_info().lamports());
+
         // Determine the result based on the multiplier
         let result = if multiplier > 1 {
             GameResult::Win
@@ -154,6 +144,8 @@ pub mod casino_plinko {
             **game_account.to_account_info().try_borrow_mut_lamports()? -= winnings;
             **player.to_account_info().try_borrow_mut_lamports()? += winnings;
 
+            // Log game account balance after payout
+            msg!("Game account balance after payout: {} lamports", game_account.to_account_info().lamports());
             msg!("Winnings transferred: {} lamports", winnings);
         }
 
@@ -195,7 +187,6 @@ pub mod casino_plinko {
     }
 
     /// Check the balance of the game account
-   /// Check the balance of the game account
     pub fn check_balance(ctx: Context<CheckBalance>) -> Result<()> {
         let game_account = &ctx.accounts.game_account;
         msg!("Game account balance: {} lamports", game_account.to_account_info().lamports());
@@ -204,32 +195,17 @@ pub mod casino_plinko {
 }
 
 #[derive(Accounts)]
-pub struct InitializePlayer<'info> {
-    #[account(
-        init,
-        payer = player,
-        space = 8, // Only discriminator is needed
-        seeds = [b"player_account", player.key().as_ref()],
-        bump
-    )]
-    pub player_account: Account<'info, PlayerAccount>,
-    #[account(mut)]
-    pub player: Signer<'info>,
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
 pub struct InitializeGame<'info> {
     #[account(
         init,
-        payer = player,
+        payer = payer,
         space = GAME_ACCOUNT_SPACE,
-        seeds = [b"game_account", player.key().as_ref()],
+        seeds = [b"global_game_account"], // Shared game account
         bump
     )]
     pub game_account: Account<'info, GameAccount>,
     #[account(mut)]
-    pub player: Signer<'info>,
+    pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
@@ -237,7 +213,7 @@ pub struct InitializeGame<'info> {
 pub struct PlaceBet<'info> {
     #[account(
         mut,
-        seeds = [b"game_account", player.key().as_ref()],
+        seeds = [b"global_game_account"], // Shared game account
         bump
     )]
     pub game_account: Account<'info, GameAccount>,
@@ -250,7 +226,7 @@ pub struct PlaceBet<'info> {
 pub struct ResetGame<'info> {
     #[account(
         mut,
-        seeds = [b"game_account", player.key().as_ref()],
+        seeds = [b"global_game_account"], // Shared game account
         bump
     )]
     pub game_account: Account<'info, GameAccount>,
@@ -263,7 +239,7 @@ pub struct ResetGame<'info> {
 pub struct DetermineResult<'info> {
     #[account(
         mut,
-        seeds = [b"game_account", player.key().as_ref()],
+        seeds = [b"global_game_account"], // Shared game account
         bump
     )]
     pub game_account: Account<'info, GameAccount>,
@@ -274,7 +250,11 @@ pub struct DetermineResult<'info> {
 
 #[derive(Accounts)]
 pub struct TopUpGameAccount<'info> {
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [b"global_game_account"], // Shared game account
+        bump
+    )]
     pub game_account: Account<'info, GameAccount>,
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -283,20 +263,19 @@ pub struct TopUpGameAccount<'info> {
 
 #[derive(Accounts)]
 pub struct CheckBalance<'info> {
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [b"global_game_account"], // Shared game account
+        bump
+    )]
     pub game_account: Account<'info, GameAccount>,
-}
-
-#[account]
-pub struct PlayerAccount {
-    // No balance field needed
 }
 
 #[account]
 pub struct GameAccount {
     pub bet_amount: u64,
     pub result: GameResult,
-    pub multiplier: u64, // Added multiplier field
+    pub multiplier: u64,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq)]
@@ -304,12 +283,6 @@ pub enum GameResult {
     Pending,
     Win,
     Loss,
-}
-
-#[event]
-pub struct PlayerInitialized {
-    pub player: Pubkey,
-    pub timestamp: i64,
 }
 
 #[event]

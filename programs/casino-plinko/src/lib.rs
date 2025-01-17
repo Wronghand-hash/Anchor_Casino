@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::system_program::{Transfer, transfer};
 
 // Declare the program ID
-declare_id!("AXZHUNhpX68q7YzdSDeKowaxL2U4KnXUqG3edLhAxKRM");
+declare_id!("DX93ZJCkAUMs6gDRnHh7ASzeazyQsb5XmNfhSXkPJTiL");
 
 // Constants
 const GAME_ACCOUNT_SPACE: usize = 8 + 8 + 1 + 8; // 8 (discriminator) + 8 (bet amount) + 1 (result) + 8 (multiplier)
@@ -173,6 +173,34 @@ pub mod casino_plinko {
 
         Ok(())
     }
+
+    /// Top up the game account with additional funds
+    pub fn top_up_game_account(ctx: Context<TopUpGameAccount>, amount: u64) -> Result<()> {
+        let game_account = &mut ctx.accounts.game_account;
+        let payer = &ctx.accounts.payer;
+
+        // Transfer SOL from payer's wallet to the game account
+        let transfer_instruction = Transfer {
+            from: payer.to_account_info(),
+            to: game_account.to_account_info(),
+        };
+        let cpi_context = CpiContext::new(
+            ctx.accounts.system_program.to_account_info(),
+            transfer_instruction,
+        );
+        transfer(cpi_context, amount)?;
+
+        msg!("Game account topped up with {} lamports", amount);
+        Ok(())
+    }
+
+    /// Check the balance of the game account
+   /// Check the balance of the game account
+    pub fn check_balance(ctx: Context<CheckBalance>) -> Result<()> {
+        let game_account = &ctx.accounts.game_account;
+        msg!("Game account balance: {} lamports", game_account.to_account_info().lamports());
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -242,6 +270,21 @@ pub struct DetermineResult<'info> {
     #[account(mut)]
     pub player: Signer<'info>,
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct TopUpGameAccount<'info> {
+    #[account(mut)]
+    pub game_account: Account<'info, GameAccount>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct CheckBalance<'info> {
+    #[account(mut)]
+    pub game_account: Account<'info, GameAccount>,
 }
 
 #[account]

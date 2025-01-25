@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::{Transfer, transfer};
+use std::mem::size_of;
 
 declare_id!("2nA5CFiicnJb33pQQkJ5GGP2166CySwXSWFgRgRsG1DF");
 
@@ -214,19 +215,18 @@ pub struct InitializeGame<'info> {
 }
 
 #[derive(Accounts)]
-pub struct InitializeGame<'info> {
+pub struct InitializePlayer<'info> {
     #[account(
         init,
         seeds = [b"game_account", player.key().as_ref()],
         bump,
         payer = player,
-        space = 8 + size_of::<GameAccount>(),
+        space = PLAYER_ACCOUNT_SPACE,
     )]
-    pub game_account: Account<'info, GameAccount>,
+    pub player_account: Account<'info, PlayerAccount>,
     pub player: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
-
 
 #[derive(Accounts)]
 pub struct PlaceBet<'info> {
